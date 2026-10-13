@@ -2636,15 +2636,28 @@ function setupCustomerWidget() {
   const optActiveTickets = document.getElementById("menu-opt-active-tickets");
   const optChatHistory = document.getElementById("menu-opt-chat-history");
 
-  if (menuBtn && dropdown) {
-    menuBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      dropdown.classList.toggle("active");
-    });
+  window.toggleWidgetMenu = (e) => {
+    if (e) {
+      if (e.stopPropagation) e.stopPropagation();
+      if (e.preventDefault) e.preventDefault();
+    }
+    const dd = document.getElementById("widget-dropdown-menu");
+    if (dd) {
+      dd.classList.toggle("active");
+    }
+  };
 
-    document.addEventListener("click", () => {
-      dropdown.classList.remove("active");
-    });
+  if (menuBtn) {
+    menuBtn.onclick = window.toggleWidgetMenu;
+  }
+
+  document.addEventListener("click", (e) => {
+    const dd = document.getElementById("widget-dropdown-menu");
+    const mb = document.getElementById("btn-widget-menu-toggle");
+    if (dd && mb && !mb.contains(e.target) && !dd.contains(e.target)) {
+      dd.classList.remove("active");
+    }
+  });
 
     // 1. New Conversation
     if (optNewConvo) {
@@ -2812,7 +2825,6 @@ function setupCustomerWidget() {
         msgs.scrollTop = msgs.scrollHeight;
       });
     }
-  }
 }
 
 function renderHistoricalChatInWidget(msgsContainer, sessionData) {

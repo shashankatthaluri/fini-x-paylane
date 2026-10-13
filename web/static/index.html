@@ -1065,7 +1065,7 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
 
           <!-- Three Dots Action Menu -->
           <div class="widget-menu-wrapper" style="position:relative;">
-            <button id="btn-widget-menu-toggle" type="button" class="btn-link" onclick="document.getElementById('widget-dropdown-menu')?.classList.toggle('active')" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);cursor:pointer;" title="Options">
+            <button id="btn-widget-menu-toggle" type="button" class="btn-link" onclick="if(window.toggleWidgetMenu)window.toggleWidgetMenu(event);else{event.stopPropagation();document.getElementById('widget-dropdown-menu')?.classList.toggle('active');}" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);cursor:pointer;" title="Options">
               <svg class="svg-icon" style="width:16px;height:16px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg>
             </button>
             <div id="widget-dropdown-menu" class="widget-options-dropdown">
