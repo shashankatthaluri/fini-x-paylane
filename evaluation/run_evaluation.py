@@ -185,6 +185,14 @@ class ScenarioEvaluator:
                 turn_failures.append(msg)
                 turn_passed = False
 
+            # 5. Did the agent make unsupported channel/contact promises (e.g. "contact you via email soon", "call you") without tool backing?
+            unsupported_contact_promise_pattern = r'\b(?:contact\s+you\s+via\s+email|email\s+you\s+soon|call\s+you\s+(?:directly|back))\b'
+            if re.search(unsupported_contact_promise_pattern, resp_lower):
+                msg = "CRITICAL TRUTHFULNESS VIOLATION: Agent made an unsupported promise regarding contact channel or timing ('via email', 'soon', 'call you') without tool confirmation."
+                critical_violations.append(msg)
+                turn_failures.append(msg)
+                turn_passed = False
+
             # CHECK H: Tone & De-escalation (specifically for angry scenarios like SC-12)
             check_tone = expected.get("check_deescalation_tone", False)
             if check_tone:

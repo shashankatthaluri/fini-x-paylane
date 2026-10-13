@@ -486,4 +486,16 @@ def test_truthfulness_check_comprehensive_matrix():
     res9 = evaluator.run_and_evaluate(r9, execution_mode="mock_driver")
     assert any("CRITICAL TRUTHFULNESS VIOLATION: Agent made an unsupported claim that a card was or will be secured" in v for v in res9["critical_violations"])
 
+    # 10. Unsupported contact channel / SLA promise (claiming specialist will email soon without evidence)
+    sess10 = SessionState()
+    sess10.tool_trace.append({
+        "event_type": "tool_execution",
+        "details": {"tool": "escalate_to_human", "result": {"ticket_id": "tick_1001"}},
+    })
+    r10 = AgentRunner(session=sess10)
+    r10._offline_handle_turn = lambda: "Your ticket ID is tick_1001. A specialist will contact you via email soon."
+    res10 = evaluator.run_and_evaluate(r10, execution_mode="mock_driver")
+    assert any("CRITICAL TRUTHFULNESS VIOLATION: Agent made an unsupported promise regarding contact channel or timing" in v for v in res10["critical_violations"])
+
+
 
