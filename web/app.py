@@ -592,7 +592,9 @@ def create_session(req: CreateSessionRequest):
         session=session,
         store=store,
         llm_client=client,
-        model_name="gpt-4o-mini",
+        model_name=ACTIVE_DRAFT.get("model", "gpt-4o-mini"),
+        temperature=float(ACTIVE_DRAFT.get("temperature", 0.0)),
+        system_prompt=ACTIVE_DRAFT.get("instructions", DEFAULT_INSTRUCTIONS),
     )
 
     ACTIVE_SESSIONS[session.session_id] = {
@@ -729,6 +731,10 @@ def process_chat(session_id: str, req: ChatRequest):
                 "takeover_active": False,
             }
 
+    # Ensure active runner uses current draft model & temperature settings
+    runner.model_name = ACTIVE_DRAFT.get("model", "gpt-4o-mini")
+    runner.temperature = float(ACTIVE_DRAFT.get("temperature", 0.0))
+
     # Process turn through trusted runner
     agent_response = runner.process_turn(req.message)
 
@@ -859,7 +865,9 @@ def reset_session(session_id: str):
         session=session,
         store=store,
         llm_client=client,
-        model_name="gpt-4o-mini",
+        model_name=ACTIVE_DRAFT.get("model", "gpt-4o-mini"),
+        temperature=float(ACTIVE_DRAFT.get("temperature", 0.0)),
+        system_prompt=ACTIVE_DRAFT.get("instructions", DEFAULT_INSTRUCTIONS),
     )
 
     ACTIVE_SESSIONS[session_id] = {

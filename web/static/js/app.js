@@ -913,6 +913,7 @@ async function loadStudioData() {
       const inputAge = document.getElementById("param-refund-age");
       const selModel = document.getElementById("param-model");
       const selTemp = document.getElementById("param-temperature");
+      const summaryBanner = document.getElementById("studio-guardrail-summary");
 
       if (inputLimit && res.draft.max_refund_limit !== undefined) {
         inputLimit.value = res.draft.max_refund_limit;
@@ -924,7 +925,13 @@ async function loadStudioData() {
         selModel.value = res.draft.model;
       }
       if (selTemp && res.draft.temperature !== undefined) {
-        selTemp.value = String(res.draft.temperature);
+        const numTemp = parseFloat(res.draft.temperature);
+        selTemp.value = !isNaN(numTemp) ? numTemp.toFixed(1) : "0.0";
+      }
+      if (summaryBanner) {
+        const lim = inputLimit?.value || 75;
+        const age = inputAge?.value || 30;
+        summaryBanner.textContent = `Immutable Python Guardrails (≤ $${lim}, < ${age}d)`;
       }
     }
 
@@ -962,8 +969,9 @@ function setupAgentStudio() {
   const inputAge = document.getElementById("param-refund-age");
   const selModel = document.getElementById("param-model");
   const selTemp = document.getElementById("param-temperature");
+  const summaryBanner = document.getElementById("studio-guardrail-summary");
 
-  const saveCurrentDraft = async () => {
+  const saveCurrentDraft = async (silent = false) => {
     const payload = {
       instructions: textarea.value,
       model: selModel?.value || "gpt-4o-mini",
@@ -972,19 +980,34 @@ function setupAgentStudio() {
       max_refund_age_days: parseInt(inputAge?.value || "30", 10),
     };
     await api.saveAgentDraft(payload);
-    showDeployToast(`Enforced: Limit $${payload.max_refund_limit} · Age < ${payload.max_refund_age_days}d`);
-    await loadStudioData();
+    if (!silent) {
+      showDeployToast(`Enforced: Limit $${payload.max_refund_limit} · Age < ${payload.max_refund_age_days}d · Temp ${payload.temperature}`);
+    }
   };
 
   if (btnSave) {
     btnSave.addEventListener("click", async () => {
       await saveCurrentDraft();
+      await loadStudioData();
     });
   }
 
   if (btnApplyParams) {
     btnApplyParams.addEventListener("click", async () => {
       await saveCurrentDraft();
+      await loadStudioData();
+    });
+  }
+
+  if (selTemp) {
+    selTemp.addEventListener("change", async () => {
+      await saveCurrentDraft(true);
+    });
+  }
+
+  if (selModel) {
+    selModel.addEventListener("change", async () => {
+      await saveCurrentDraft(true);
     });
   }
 
@@ -1015,33 +1038,58 @@ function setupAgentStudio() {
   // Bidirectional Synchronization between Instructions Textbox and Right Inputs
   // ---------------------------------------------------------------------------
   let isSyncing = false;
+  let debounceSaveTimer = null;
+
+  const triggerDebouncedSave = () => {
+    if (debounceSaveTimer) clearTimeout(debounceSaveTimer);
+    debounceSaveTimer = setTimeout(() => {
+      saveCurrentDraft(true).catch(console.error);
+    }, 800);
+  };
+
+  const updateBanner = (limitVal, ageVal) => {
+    if (summaryBanner) {
+      summaryBanner.textContent = `Immutable Python Guardrails (≤ $${limitVal}, < ${ageVal}d)`;
+    }
+  };
 
   const syncInputsToInstructions = () => {
     if (isSyncing || !textarea) return;
     isSyncing = true;
     try {
-      const limitVal = parseFloat(inputLimit?.value || "75").toFixed(2);
-      const limitInt = parseInt(inputLimit?.value || "75", 10);
-      const ageVal = parseInt(inputAge?.value || "30", 10);
+      const limitNum = parseFloat(inputLimit?.value || "75");
+      const limitVal = !isNaN(limitNum) ? limitNum.toFixed(2) : "75.00";
+      const limitInt = !isNaN(limitNum) ? Math.round(limitNum) : 75;
+      const ageNum = parseInt(inputAge?.value || "30", 10);
+      const ageVal = !isNaN(ageNum) ? ageNum : 30;
+
+      updateBanner(limitInt, ageVal);
 
       let text = textarea.value;
 
-      // Update $75 / $75.00 / amounts > $75
+      // Update instructions text dynamically matching all standard phrasing formats:
+      // Format 1: "Auto-approve up to $75.00"
+      text = text.replace(/(Auto-approve up to \$)\d+(?:\.\d+)?/gi, `$1${limitVal}`);
+      // Format 2: "Exceeding $75.00" / "Amounts over $75.00" / "Amounts > $75"
+      text = text.replace(/(Exceeding \$)\d+(?:\.\d+)?/gi, `$1${limitVal}`);
+      text = text.replace(/(Amounts over \$)\d+(?:\.\d+)?/gi, `$1${limitVal}`);
+      text = text.replace(/(amounts > \$)\d+(?:\.\d+)?/gi, `$1${limitVal}`);
+      text = text.replace(/(strictly <= \$)\d+(?:\.\d+)?/gi, `$1${limitVal}`);
       text = text.replace(/(\$\s*)\d+(\.\d+)?(\s*or less)/gi, `$1${limitVal}$3`);
-      text = text.replace(/(amounts\s*>\s*\$)\d+(\.\d+)?/gi, `$1${limitVal}`);
-      text = text.replace(/(amount\s*>\s*\$)\d+(\.\d+)?/gi, `$1${limitInt}`);
-      text = text.replace(/(Refunds over\s*\$)\d+(\.\d+)?/gi, `$1${limitInt}`);
-      text = text.replace(/(auto-approve up to\s*\$)\d+(\.\d+)?/gi, `$1${limitInt}`);
 
-      // Update 30 days / under 30 days / 30 days old
-      text = text.replace(/(strictly under\s*)\d+(\s*days)/gi, `$1${ageVal}$2`);
-      text = text.replace(/(transactions\s*)\d+(\s*days old or older)/gi, `$1${ageVal}$2`);
-      text = text.replace(/(\b)\d+(\+?\s*days old)/gi, `$1${ageVal}$2`);
+      // Update days age dynamically:
+      // Format 1: "under 30 days old" / "strictly under 30 days"
       text = text.replace(/(under\s*)\d+(\s*days old)/gi, `$1${ageVal}$2`);
+      text = text.replace(/(strictly under\s*)\d+(\s*days)/gi, `$1${ageVal}$2`);
+      text = text.replace(/(under\s*)\d+(\s*days)/gi, `$1${ageVal}$2`);
+      // Format 2: "Transactions 30 days old or older" / "older than 30 days"
+      text = text.replace(/(Transactions\s*)\d+(\s*days old or older)/gi, `$1${ageVal}$2`);
+      text = text.replace(/(older than\s*)\d+(\s*days)/gi, `$1${ageVal}$2`);
 
       if (text !== textarea.value) {
         textarea.value = text;
       }
+      triggerDebouncedSave();
     } finally {
       isSyncing = false;
     }
@@ -1053,8 +1101,9 @@ function setupAgentStudio() {
     try {
       const text = textarea.value;
 
-      // Match refund limit patterns: "$75.00 or less", "amounts > $75", "auto-approve up to $75", "amount is $75"
-      const limitMatch = text.match(/(?:amount is \$|auto-approve up to \$|amounts > \$|Refunds over \$|\$\s*)(\d+(?:\.\d+)?)/i);
+      // Match refund limit patterns:
+      // "Auto-approve up to $75.00", "Amounts over $75", "<= $75", "amounts > $75"
+      const limitMatch = text.match(/(?:Auto-approve up to \$|strictly <=\s*\$|Amounts over \$|amounts > \$|Exceeding \$|\$\s*)(\d+(?:\.\d+)?)/i);
       if (limitMatch && limitMatch[1]) {
         const parsedLimit = parseFloat(limitMatch[1]);
         if (!isNaN(parsedLimit) && parsedLimit > 0 && inputLimit) {
@@ -1064,8 +1113,8 @@ function setupAgentStudio() {
         }
       }
 
-      // Match age patterns: "strictly under 30 days", "under 30 days", "30 days old or older", "30+ days old"
-      const ageMatch = text.match(/(?:strictly under|under|transactions)\s*(\d+)\s*days/i) || text.match(/(\d+)\+?\s*days old/i);
+      // Match age patterns: "under 30 days old", "older than 30 days", "30 days old or older"
+      const ageMatch = text.match(/(?:under|strictly under|older than|Transactions)\s*(\d+)\s*days/i) || text.match(/(\d+)\+?\s*days old/i);
       if (ageMatch && ageMatch[1]) {
         const parsedAge = parseInt(ageMatch[1], 10);
         if (!isNaN(parsedAge) && parsedAge > 0 && inputAge) {
@@ -1074,6 +1123,9 @@ function setupAgentStudio() {
           }
         }
       }
+
+      updateBanner(inputLimit?.value || 75, inputAge?.value || 30);
+      triggerDebouncedSave();
     } finally {
       isSyncing = false;
     }

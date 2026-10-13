@@ -48,18 +48,22 @@ class AgentRunner:
         store: Optional[FixtureStore] = None,
         llm_client: Optional[Any] = None,
         model_name: str = "gpt-4o-mini",
+        temperature: float = 0.0,
+        system_prompt: Optional[str] = None,
     ) -> None:
         self.session = session or SessionState()
         self.store = store or FixtureStore()
         self.llm_client = llm_client
         self.model_name = model_name
+        self.temperature = float(temperature)
+        self.system_prompt = system_prompt or SYSTEM_PROMPT
         self.last_turn_usage: Dict[str, Any] = {"input_tokens": 0, "output_tokens": 0, "tool_called": "none"}
 
         # Initialize conversation messages if new
         if not self.session.messages:
             self.session.messages.append({
                 "role": "system",
-                "content": SYSTEM_PROMPT,
+                "content": self.system_prompt,
             })
 
     def process_turn(self, user_input: str) -> str:
@@ -121,7 +125,7 @@ class AgentRunner:
                 messages=self.session.messages,
                 tools=PUBLIC_TOOLS_SCHEMA,
                 tool_choice="auto",
-                temperature=0.0,
+                temperature=self.temperature,
             )
 
             if hasattr(response, "usage") and response.usage:

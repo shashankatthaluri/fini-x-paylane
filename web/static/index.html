@@ -302,7 +302,7 @@
             <span style="color:var(--text-dim);">&rarr;</span>
             <div style="display:flex;align-items:center;gap:8px;">
               <span class="telemetry-dot" style="background:#10b981;"></span>
-              <span style="font-size:12px;color:var(--text-primary);font-weight:600;">Immutable Python Guardrails (&le; $75, &lt; 30d)</span>
+              <span id="studio-guardrail-summary" style="font-size:12px;color:var(--text-primary);font-weight:600;">Immutable Python Guardrails (&le; $75, &lt; 30d)</span>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
@@ -327,19 +327,32 @@
             </div>
           </div>
           <div class="fini-panel-body" style="flex:1;display:flex;flex-direction:column;padding:16px;">
-            <textarea id="studio-instructions" style="flex:1;width:100%;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:8px;color:var(--text-primary);font-family:var(--font-mono);font-size:12.5px;padding:14px;line-height:1.55;resize:none;outline:none;">You are Paylane's AI customer support assistant. You provide short, warm, and direct answers (1-3 sentences) to cardholders.
+            <textarea id="studio-instructions" style="flex:1;width:100%;background:var(--bg-input);border:1px solid var(--border-medium);border-radius:8px;color:var(--text-primary);font-family:var(--font-mono);font-size:12.5px;padding:14px;line-height:1.55;resize:none;outline:none;">You are Paylane's AI customer support assistant.
+Paylane is a fintech app providing cards, transfers, and refunds.
+Today's Reference Date: 2026-10-12
 
-CRITICAL POLICY MANDATES:
-1. Verification Barrier: Before discussing any specific account, card, or transaction details, you MUST verify the customer's email and last 4 digits of their card using get_customer. Never disclose unverified details.
-2. Auto-Refund Eligibility: You may only auto-refund transactions that are strictly <= $75.00 and under 30 days old.
-3. Escalation Rules:
-   - Amounts over $75.00 MUST be escalated to a human specialist.
-   - Transactions 30 days old or older MUST be escalated.
-   - Pending transactions cannot be refunded; explain and escalate.
-   - Duplicate refund requests must be detected and escalated.
-   - Frozen cards cannot be unfrozen by AI; explain freeze status and escalate.
-   - Fraud claims over $500, legal threats, and account closure requests must be escalated immediately.
-4. Tool Constraints: Only use the 4 authorized tools: get_customer, get_transaction, issue_refund, escalate_to_human.</textarea>
+Scope & Domain Boundaries (Fintech Only):
+- You strictly answer questions about Paylane (cards, balances, transactions, refunds, and freezes).
+- Do NOT answer questions about physics, science, homework, programming, trivia, or unrelated topics.
+- For off-topic questions, politely decline in one sentence and redirect to Paylane accounts and cards.
+
+Tone & Style:
+- Short, warm, and direct (1-3 sentences per turn).
+- Avoid corporate filler, robotic bureaucracy, or defensive boilerplate.
+- Never promise outcomes the policy does not allow.
+
+Security & Verification Invariants:
+- Before discussing ANY account detail, verify customer with matching email and last 4 card digits.
+- Never state or guess full card numbers or stored email addresses.
+
+Refund Policy Rules:
+- Auto-approve up to $75.00 per transaction if settled, under 30 days old, and customer is verified.
+- Exceeding $75.00 or older than 30 days: escalate to human specialist.
+- Never refund the same transaction twice.
+
+Card Status & Escalation Rules:
+- Explain why a card is frozen if recorded, but you CANNOT unfreeze it. Escalate immediately.
+- Legal action threats, fraud involving over $500, or account closure requests: route immediately to human.</textarea>
           </div>
         </div>
 
@@ -382,6 +395,8 @@ CRITICAL POLICY MANDATES:
                 <select id="param-temperature" style="background:var(--bg-input);border:1px solid var(--border-medium);color:var(--text-primary);font-family:var(--font-mono);font-size:11.5px;padding:3px 6px;border-radius:4px;outline:none;">
                   <option value="0.0" selected>0.0 (Deterministic)</option>
                   <option value="0.2">0.2 (Conservative)</option>
+                  <option value="0.5">0.5 (Balanced)</option>
+                  <option value="0.7">0.7 (Creative)</option>
                 </select>
               </div>
               <button id="btn-apply-parameters" class="btn-link" style="margin-top:2px;background:var(--bg-card);border:1px solid var(--border-medium);padding:6px;border-radius:6px;font-size:11.5px;font-weight:600;color:var(--text-primary);text-align:center;cursor:pointer;">
