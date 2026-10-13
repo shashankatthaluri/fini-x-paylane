@@ -393,7 +393,10 @@ function setupSupabaseAuth() {
       if (nameGroup) nameGroup.style.display = "none";
       if (confirmGroup) confirmGroup.style.display = "none";
       if (submitBtnText) submitBtnText.textContent = "Sign in";
-      if (errorMsg) errorMsg.style.display = "none";
+      if (errorMsg) {
+        errorMsg.style.display = "none";
+        errorMsg.classList.remove("warning");
+      }
     });
 
     tabSignUp.addEventListener("click", () => {
@@ -405,7 +408,10 @@ function setupSupabaseAuth() {
       if (nameGroup) nameGroup.style.display = "flex";
       if (confirmGroup) confirmGroup.style.display = "flex";
       if (submitBtnText) submitBtnText.textContent = "Create account";
-      if (errorMsg) errorMsg.style.display = "none";
+      if (errorMsg) {
+        errorMsg.style.display = "none";
+        errorMsg.classList.remove("warning");
+      }
     });
   }
 
@@ -490,8 +496,38 @@ function setupSupabaseAuth() {
         }
       } catch (err) {
         if (errorMsg) {
-          errorMsg.textContent = err.message || "Authentication failed";
-          errorMsg.style.display = "block";
+          const msg = err.message || "Authentication failed";
+          // Detect unregistered-email sign-in attempt (Supabase returns generic "Invalid login credentials")
+          if (currentAuthMode === "signin" && msg.toLowerCase().includes("invalid login credentials")) {
+            errorMsg.classList.add("warning");
+            errorMsg.innerHTML = `⚠️ No account found with this email (or incorrect credentials). <a href="#" id="auth-switch-to-signup" style="color:var(--accent-primary);text-decoration:underline;font-weight:600;cursor:pointer;">Create an account</a> instead?`;
+            errorMsg.style.display = "block";
+            // Wire up the inline link to switch to signup tab
+            const switchLink = document.getElementById("auth-switch-to-signup");
+            if (switchLink) {
+              switchLink.addEventListener("click", (ev) => {
+                ev.preventDefault();
+                const tabUp = document.getElementById("tab-auth-signup");
+                if (tabUp) tabUp.click();
+              });
+            }
+          } else if (currentAuthMode === "signup" && msg.toLowerCase().includes("user already registered")) {
+            errorMsg.classList.add("warning");
+            errorMsg.innerHTML = `⚠️ An account with this email already exists. <a href="#" id="auth-switch-to-signin" style="color:var(--accent-primary);text-decoration:underline;font-weight:600;cursor:pointer;">Sign in</a> instead?`;
+            errorMsg.style.display = "block";
+            const switchLink = document.getElementById("auth-switch-to-signin");
+            if (switchLink) {
+              switchLink.addEventListener("click", (ev) => {
+                ev.preventDefault();
+                const tabIn = document.getElementById("tab-auth-signin");
+                if (tabIn) tabIn.click();
+              });
+            }
+          } else {
+            errorMsg.classList.remove("warning");
+            errorMsg.textContent = msg;
+            errorMsg.style.display = "block";
+          }
         }
       } finally {
         if (submitBtn) submitBtn.disabled = false;

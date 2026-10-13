@@ -1720,6 +1720,12 @@ body {
   line-height: 1.4;
 }
 
+.auth-inline-alert.warning {
+  color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
 /* Option 3: Separated Evaluation Demo Access Section */
 .auth-demo-section {
   margin-top: 24px;
