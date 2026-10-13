@@ -25,6 +25,7 @@ class SessionState:
     customer_name: Optional[str] = None
     verified: bool = False
     customer_email: Optional[str] = None
+    unverified_email: Optional[str] = None
     messages: List[Dict[str, Any]] = field(default_factory=list)
     tool_trace: List[Dict[str, Any]] = field(default_factory=list)
 

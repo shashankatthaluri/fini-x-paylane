@@ -19,6 +19,28 @@ from paylane_support_agent.session import SessionState
 from paylane_support_agent.tools import get_store, issue_refund
 
 
+# Configurable Safety Policy Parameters (Default to Assignment Contract)
+DEFAULT_MAX_REFUND_LIMIT: float = 75.00
+DEFAULT_MAX_REFUND_AGE_DAYS: int = 30
+
+
+def get_current_policy_parameters() -> Dict[str, Any]:
+    """Retrieve active runtime safety parameters."""
+    return {
+        "max_refund_limit": DEFAULT_MAX_REFUND_LIMIT,
+        "max_refund_age_days": DEFAULT_MAX_REFUND_AGE_DAYS,
+    }
+
+
+def set_current_policy_parameters(max_limit: Optional[float] = None, max_age_days: Optional[int] = None) -> None:
+    """Dynamically update safety policy parameters."""
+    global DEFAULT_MAX_REFUND_LIMIT, DEFAULT_MAX_REFUND_AGE_DAYS
+    if max_limit is not None and max_limit > 0:
+        DEFAULT_MAX_REFUND_LIMIT = float(max_limit)
+    if max_age_days is not None and max_age_days > 0:
+        DEFAULT_MAX_REFUND_AGE_DAYS = int(max_age_days)
+
+
 class PolicyViolation(Exception):
     """Raised when a prohibited tool execution is attempted."""
     pass
@@ -118,26 +140,27 @@ def check_refund_eligibility(
             "transaction": txn,
         }
 
-    # Rule 5: Amount Limit (<= $75.00 auto-approved; > $75.00 requires escalation)
-    if requested_amount > 75.00:
+    # Rule 5: Amount Limit (<= max_limit auto-approved; > max_limit requires escalation)
+    limit = DEFAULT_MAX_REFUND_LIMIT
+    if requested_amount > limit:
         return {
             "eligible": False,
             "reason": "amount_exceeds_limit",
-            "message": f"Refund amount of ${requested_amount:.2f} exceeds the automatic threshold of $75.00.",
+            "message": f"Refund amount of ${requested_amount:.2f} exceeds the automatic threshold of ${limit:.2f}.",
             "requires_escalation": True,
             "transaction": txn,
         }
 
-    # Rule 6: Transaction Age (Strictly under 30 days: elapsed_seconds < 30 * 86400)
-    # 30 days = 2,592,000 seconds. Exactly 30 days or greater requires escalation.
+    # Rule 6: Transaction Age (Strictly under max_age_days: elapsed_seconds < max_age_days * 86400)
+    max_days = DEFAULT_MAX_REFUND_AGE_DAYS
     elapsed_seconds, elapsed_days = calculate_transaction_age(txn["date"], ref_time=ref_time)
-    thirty_days_in_seconds = 30 * 86400.0
+    max_days_in_seconds = max_days * 86400.0
 
-    if elapsed_seconds >= thirty_days_in_seconds:
+    if elapsed_seconds >= max_days_in_seconds:
         return {
             "eligible": False,
             "reason": "transaction_too_old",
-            "message": f"Transaction is {elapsed_days} days old (30 days or older). Transactions 30 days or older require human escalation.",
+            "message": f"Transaction is {elapsed_days} days old ({max_days} days or older). Transactions {max_days} days or older require human escalation.",
             "requires_escalation": True,
             "transaction": txn,
         }

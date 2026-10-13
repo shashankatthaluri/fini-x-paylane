@@ -37,6 +37,14 @@ DEFAULT_CUSTOMERS: Dict[str, Dict[str, Any]] = {
         "status": "active",
         "verified": False,
     },
+    "cust_deepak_104": {
+        "id": "cust_deepak_104",
+        "email": "deepak.singla@paylane.com",
+        "name": "Deepak Singla",
+        "card_last4": "7788",
+        "status": "active",
+        "verified": False,
+    },
 }
 
 # Initial deterministic transactions
@@ -112,6 +120,14 @@ DEFAULT_TRANSACTIONS: Dict[str, Dict[str, Any]] = {
         "amount": 30.00,
         "date": "2026-09-28T10:00:00Z",
         "merchant": "Corner Bakery",
+        "status": "settled",
+    },
+    "txn_401_deepak_over_75": {
+        "id": "txn_401_deepak_over_75",
+        "customer_id": "cust_deepak_104",
+        "amount": 145.00,
+        "date": "2026-10-02T14:00:00Z",
+        "merchant": "Enterprise SaaS Solutions",
         "status": "settled",
     },
 }

@@ -29,7 +29,7 @@ def extract_potential_verification_credentials(user_message: str) -> Dict[str, O
     """
     email_pattern = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
     email_match = re.search(email_pattern, user_message)
-    email = email_match.group(0) if email_match else None
+    email = email_match.group(0).rstrip(".") if email_match else None
 
     # Find 4-digit card numbers (e.g. "ending in 4821", "card 4821", "4821")
     card_pattern = r'(?:\b|ending\s+in\s+|card\s+|digits?\s+)(\d{4})\b'
@@ -53,6 +53,7 @@ class AgentRunner:
         self.store = store or FixtureStore()
         self.llm_client = llm_client
         self.model_name = model_name
+        self.last_turn_usage: Dict[str, Any] = {"input_tokens": 0, "output_tokens": 0, "tool_called": "none"}
 
         # Initialize conversation messages if new
         if not self.session.messages:
@@ -70,10 +71,16 @@ class AgentRunner:
         # 1. Trusted Verification Check from user input (Application-level gate)
         # Checks if user supplied email and last 4 card digits
         creds = extract_potential_verification_credentials(user_input)
-        if creds["email"] and creds["card_last4"]:
+        if creds["email"] and not self.session.verified:
+            self.session.unverified_email = creds["email"]
+
+        email_to_verify = creds["email"] or self.session.unverified_email
+        card_to_verify = creds["card_last4"]
+
+        if email_to_verify and card_to_verify and not self.session.verified:
             verify_res = verify_customer_credentials(
-                submitted_email=creds["email"],
-                submitted_card_last4=creds["card_last4"],
+                submitted_email=email_to_verify,
+                submitted_card_last4=card_to_verify,
                 session=self.session,
                 store=self.store,
             )
@@ -105,6 +112,8 @@ class AgentRunner:
         max_tool_iterations = 5
         iteration = 0
 
+        self.last_turn_usage = {"input_tokens": 0, "output_tokens": 0, "tool_called": "none"}
+
         while iteration < max_tool_iterations:
             iteration += 1
             response = self.llm_client.chat.completions.create(
@@ -114,6 +123,10 @@ class AgentRunner:
                 tool_choice="auto",
                 temperature=0.0,
             )
+
+            if hasattr(response, "usage") and response.usage:
+                self.last_turn_usage["input_tokens"] += getattr(response.usage, "prompt_tokens", 0) or 0
+                self.last_turn_usage["output_tokens"] += getattr(response.usage, "completion_tokens", 0) or 0
 
             assistant_msg = response.choices[0].message
             # Append message to session history
@@ -152,6 +165,7 @@ class AgentRunner:
                     fn_args = {}
 
                 # DISPATCH THROUGH TRUSTED GATE
+                self.last_turn_usage["tool_called"] = fn_name
                 result = dispatch_tool_call(
                     tool_name=fn_name,
                     tool_args=fn_args,
@@ -159,7 +173,7 @@ class AgentRunner:
                     store=self.store,
                 )
 
-                # Return sanitized tool output to model
+                # Return sanitized tool output to model (preserving exact public tool schema)
                 self.session.messages.append({
                     "role": "tool",
                     "tool_call_id": tc.id,
@@ -167,10 +181,44 @@ class AgentRunner:
                     "content": json.dumps(result),
                 })
 
+                # Approach A: Separate Trusted Policy Context
+                # If get_transaction succeeded, trusted code evaluates eligibility and injects a trusted policy directive
+                if fn_name == "get_transaction" and not result.get("error"):
+                    from paylane_support_agent.policy import check_refund_eligibility
+                    txn_id = fn_args.get("txn_id")
+                    txn_amt = result.get("amount", 0.0)
+                    elig = check_refund_eligibility(
+                        session=self.session,
+                        txn_id=txn_id,
+                        requested_amount=txn_amt,
+                        store=self.store,
+                    )
+                    if not elig["eligible"]:
+                        self.session.messages.append({
+                            "role": "system",
+                            "content": (
+                                f"[TRUSTED POLICY DIRECTIVE: Transaction '{txn_id}' is NOT eligible for automatic refund ({elig['reason']}: {elig['message']}). "
+                                f"You MUST NOT call issue_refund! You MUST call escalate_to_human(customer_id='{self.session.customer_id}', summary=...) immediately.]"
+                            ),
+                        })
+                    else:
+                        self.session.messages.append({
+                            "role": "system",
+                            "content": (
+                                f"[TRUSTED POLICY DIRECTIVE: Transaction '{txn_id}' is verified and eligible for automatic refund of ${txn_amt:.2f}. "
+                                f"You may call issue_refund(txn_id='{txn_id}', amount={txn_amt}).]"
+                            ),
+                        })
+
         return "I am processing your request. Please let me know how else I can assist you."
 
     def _offline_handle_turn(self) -> str:
         """Deterministic rule-based handler for offline execution testing without API keys."""
+        self.last_turn_usage = {
+            "input_tokens": 420,
+            "output_tokens": 48,
+            "tool_called": "get_customer" if not self.session.verified else "none",
+        }
         if not self.session.verified:
             return "For your security, please provide both your email address on file and the last 4 digits of your card so I can verify your account."
         return f"Hello {self.session.customer_name or 'there'}, your account is verified. How can I assist you with Paylane today?"
