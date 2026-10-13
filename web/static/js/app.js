@@ -300,26 +300,26 @@ function setupSupabaseAuth() {
     if (typeof switchView === "function") switchView("overview");
   };
 
-  // Default session initialization: preserve evaluator session so overlay never intercepts user clicks
+  // Require explicit authentication on first visit:
+  // If user has a valid saved session, load it; otherwise show the Sign In / Sign Up modal.
   const savedUser = localStorage.getItem("paylane_user");
   if (savedUser) {
     try {
       const parsed = JSON.parse(savedUser);
       setAuthUser(parsed);
     } catch (e) {
-      setAuthUser({
-        name: "Evaluator (Demo Session)",
-        email: "evaluator@demo.paylane.internal",
-        role: "Evaluation Sandbox"
-      });
+      localStorage.removeItem("paylane_user");
+      if (overlay) {
+        overlay.classList.add("active");
+        overlay.style.display = "flex";
+      }
     }
   } else {
-    // Automatically initialize demo session for zero-friction review
-    setAuthUser({
-      name: "Evaluator (Demo Session)",
-      email: "evaluator@demo.paylane.internal",
-      role: "Evaluation Sandbox"
-    });
+    // Show Sign In / Sign Up overlay by default on clean visits
+    if (overlay) {
+      overlay.classList.add("active");
+      overlay.style.display = "flex";
+    }
   }
 
   const confirmGroup = document.getElementById("auth-confirm-pw-group");
