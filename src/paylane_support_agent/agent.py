@@ -358,13 +358,15 @@ def dispatch_tool_call(
                 })
                 return {"error": "Customer cannot freeze a card belonging to another account."}
             
-            res = freeze_card(customer_id=session.customer_id, store=s)
+            reason = tool_args.get("reason")
+            res = freeze_card(customer_id=session.customer_id, reason=reason, store=s)
             session.record_trace("tool_execution", {
                 "tool": "freeze_card",
-                "args": {"customer_id": session.customer_id},
+                "args": {"customer_id": session.customer_id, "reason": reason},
                 "result": res,
             })
             return res
+
 
         elif tool_name == "list_recent_transactions":
             customer_id = tool_args.get("customer_id") or session.customer_id

@@ -128,7 +128,7 @@ def escalate_to_human(customer_id: str, summary: str, store: Optional[FixtureSto
     return {"ticket_id": ticket_id}
 
 
-def freeze_card(customer_id: str, store: Optional[FixtureStore] = None) -> Dict[str, Any]:
+def freeze_card(customer_id: str, reason: Optional[str] = None, store: Optional[FixtureStore] = None) -> Dict[str, Any]:
     """Emergency card freeze tool.
     
     Protective, loss-mitigating action for lost or stolen cards.
@@ -142,8 +142,11 @@ def freeze_card(customer_id: str, store: Optional[FixtureStore] = None) -> Dict[
     if not cust:
         return {"ok": False, "error": "customer_not_found"}
     
+    freeze_desc = reason or "Reported lost or stolen by customer during support session"
     cust["status"] = "frozen"
-    return {"ok": True, "status": "frozen", "customer_id": cust["id"]}
+    cust["freeze_reason"] = freeze_desc
+    return {"ok": True, "status": "frozen", "customer_id": cust["id"], "freeze_reason": freeze_desc}
+
 
 
 def list_recent_transactions(customer_id: str, limit: int = 5, store: Optional[FixtureStore] = None) -> Dict[str, Any]:

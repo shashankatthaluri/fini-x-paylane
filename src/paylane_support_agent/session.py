@@ -117,8 +117,10 @@ def verify_customer_credentials(
             "customer_id": raw_cust["id"],
             "name": raw_cust["name"],
             "status": raw_cust["status"],
+            "freeze_reason": raw_cust.get("freeze_reason"),
             "verified": True,
         }
+
     else:
         # Mismatch: do not reveal what failed or what the stored value was
         session.record_trace("verification_attempt", {

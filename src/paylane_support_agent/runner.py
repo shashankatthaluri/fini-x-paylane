@@ -90,15 +90,20 @@ class AgentRunner:
             )
             # Inject trusted system state note so model knows verified status without revealing secrets
             if verify_res["success"]:
+                freeze_info = ""
+                if verify_res.get("status") == "frozen":
+                    r = verify_res.get("freeze_reason") or "Card is frozen"
+                    freeze_info = f" Freeze reason on file: '{r}'."
                 self.session.messages.append({
                     "role": "system",
-                    "content": f"[TRUSTED SYSTEM NOTE: Customer '{verify_res['name']}' (ID: {verify_res['customer_id']}) has been successfully verified via matching email and card digits. Status: {verify_res['status']}].",
+                    "content": f"[TRUSTED SYSTEM NOTE: Customer '{verify_res['name']}' (ID: {verify_res['customer_id']}) has been successfully verified via matching email and card digits. Card status: {verify_res['status']}.{freeze_info}].",
                 })
             else:
                 self.session.messages.append({
                     "role": "system",
                     "content": "[TRUSTED SYSTEM NOTE: Submitted credentials did not match records. Customer is NOT verified. Do not disclose specific mismatch details].",
                 })
+
 
         # 2. Invoke LLM if client is provided, otherwise return mock/offline response
         if not self.llm_client:
