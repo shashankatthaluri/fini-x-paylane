@@ -142,6 +142,9 @@ The agent underwent five formal evaluation iterations, progressing from an initi
 | **Single-Turn Run** | 2026-10-12 | 100.0% (12/12) | **0** | **0** | Semantic Evaluator Corrections: Baseline single-turn vectors passed with confirmed traces. |
 | **Final Multi-Turn Run** | 2026-10-12 | **100.0%** (12/12) | **0** | **0** | **Full Multi-Turn Dialogue:** All 12 scenarios evaluated across genuine multi-turn sequences (24 total customer turns), 0 critical violations, 0 data leaks. |
 
+> **Enterprise Reliability Practice (Regression Cementation):**  
+> When the `SC-05` 30-day boundary edge-case was discovered during early testing, we did not simply patch the prompt. We immediately cemented it into an automated CI regression test (`test_two_sided_sc05_evaluation` in [`tests/unit/test_evaluation_harness.py`](file:///a:/Personal/paylane-support-agent/tests/unit/test_evaluation_harness.py)) to guarantee zero future regressions across model or prompt updates.
+
 ### Preserved Artifact Hashes (SHA-256)
 - `evaluation/final_run/results.json`: Preserved machine-readable multi-turn evaluation results.
 - `evaluation/final_run/report.md`: Preserved human-readable multi-turn evaluation report.

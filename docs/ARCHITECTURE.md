@@ -143,3 +143,28 @@ Turn 1: Customer Input
   │
   └─► [Untrusted LLM] Generates final grounded customer response citing returned ID.
 ```
+
+---
+
+## 4. Enterprise Production Patterns & System Rigor
+
+To bridge the gap between prototype wrappers and enterprise-grade reliability, the system incorporates three universal architectural principles:
+
+### 4.1 Auditable Execution Receipts (Compliance & Explainability)
+Every financial action or security decision records a structured, sanitized decision receipt in the session audit ledger:
+- Tracks exact policy checks evaluated: `session_verified`, `amount <= $75.00`, `age < 30 days`, `status == settled`, `duplicate_check`.
+- Redacts customer PII (`card_last4`, raw PANs) so traces can be audited by compliance and operations without violating data minimization standards.
+- Emits downstream confirmation IDs (`refund_id`, `ticket_id`) as proof of execution.
+
+### 4.2 State-Machine Guardrails for Multi-Turn Dialogue
+Conversations transition through deterministic phases managed in trusted application code:
+1. **`GATHERING_INTENT`**: Understanding customer inquiry without premature account disclosure.
+2. **`VERIFYING_IDENTITY`**: Evaluating submitted email and card last 4 digits in trusted code.
+3. **`EVALUATING_ACTION`**: Validating ownership and executing pre-call policy gates.
+4. **`TERMINAL_ESCALATION`**: Once a hard escalation threshold triggers (fraud $> \$500$, legal action, card unfreeze request), the session state locks into escalation mode. Prompt injection or subsequent pushback cannot reset the conversation back into autonomous financial execution.
+
+### 4.3 Zero-Hallucination on Escalation Handoff (Calm Clarity)
+When a case is escalated, the assistant communicates only verified facts:
+- **Verified Fact**: Confirmation that ticket ID (`tick_XXXX`) was created and queued for human specialist review.
+- **Strict Boundary**: The agent never invents fake callback windows ("within 2 hours"), unconfirmed channels ("we will email you soon"), or fictional agent personas.
+
