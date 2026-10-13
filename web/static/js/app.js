@@ -1999,16 +1999,25 @@ function setupLivePreview() {
     });
   }
 
-  // Fast-fill chips in Preview
+  // Fast-fill chips in Preview: populate into typing box for user to inspect before sending
+  window.selectSuggestedPrompt = (promptText) => {
+    const previewInput = document.getElementById("preview-input");
+    if (previewInput) {
+      previewInput.value = promptText;
+      previewInput.style.height = "auto";
+      const newHeight = Math.max(48, Math.min(previewInput.scrollHeight, 180));
+      previewInput.style.height = `${newHeight}px`;
+      previewInput.focus();
+      if (typeof previewInput.setSelectionRange === "function") {
+        previewInput.setSelectionRange(previewInput.value.length, previewInput.value.length);
+      }
+    }
+  };
+
   document.querySelectorAll("#stage-preview .fast-fill-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
       const prompt = chip.getAttribute("data-prompt");
-      if (input) {
-        input.value = prompt;
-        input.style.height = "auto";
-        input.style.height = `${Math.max(48, Math.min(input.scrollHeight, 180))}px`;
-        handlePreviewSend();
-      }
+      window.selectSuggestedPrompt(prompt);
     });
   });
 }
