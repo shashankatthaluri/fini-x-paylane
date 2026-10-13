@@ -61,6 +61,13 @@ export const api = {
     return res.json();
   },
 
+  async getCustomerNote() {
+    const res = await fetch(`${API_BASE}/api/customer-note`);
+    if (!res.ok) throw new Error("Failed to load customer note");
+    return res.json();
+  },
+
+
   async getScenarioTranscript(scenarioId) {
     const res = await fetch(`${API_BASE}/api/evaluation/transcripts/${scenarioId}`);
     if (!res.ok) throw new Error("Failed to load transcript");

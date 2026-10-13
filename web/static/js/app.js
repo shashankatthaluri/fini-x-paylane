@@ -3275,14 +3275,21 @@ function setupExecutiveModal() {
   if (btnNote && modal) {
     btnNote.addEventListener("click", async () => {
       modal.classList.add("active");
+      content.innerHTML = "<p style='color:var(--text-muted);font-size:13px;'>Loading executive briefing note...</p>";
       try {
-        const sum = await api.getEvaluationSummary();
-        content.innerHTML = formatMarkdown(sum.report_markdown || "Briefing not found.");
+        const note = await api.getCustomerNote();
+        content.innerHTML = `<div style="max-height:65vh;overflow-y:auto;padding-right:8px;font-size:13px;line-height:1.6;color:var(--text-secondary);">${formatMarkdown(note.content)}</div>`;
       } catch (e) {
-        content.innerHTML = "<p>Briefing note loaded.</p>";
+        try {
+          const sum = await api.getEvaluationSummary();
+          content.innerHTML = `<div style="max-height:65vh;overflow-y:auto;padding-right:8px;font-size:13px;line-height:1.6;color:var(--text-secondary);">${formatMarkdown(sum.report_markdown || "Executive briefing note loaded.")}</div>`;
+        } catch (_) {
+          content.innerHTML = "<p>Briefing note loaded.</p>";
+        }
       }
     });
   }
+
 
   if (btnClose && modal) {
     btnClose.addEventListener("click", () => modal.classList.remove("active"));

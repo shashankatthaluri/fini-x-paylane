@@ -930,6 +930,18 @@ def get_evaluation_summary():
     }
 
 
+@app.get("/api/customer-note")
+def get_customer_note():
+    """Retrieve markdown content of the executive briefing customer note."""
+    note_path = ROOT_DIR / "docs" / "customer_note.md"
+    if not note_path.exists():
+        raise HTTPException(status_code=404, detail="Customer note not found.")
+    with open(note_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    return {"content": content}
+
+
+
 @app.get("/api/evaluation/transcripts/{scenario_id}")
 def get_scenario_transcript(scenario_id: str):
     """Retrieve live markdown transcript and audited trace for a specific scenario."""
