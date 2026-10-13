@@ -42,9 +42,11 @@ def get_customer(email: str, store: Optional[FixtureStore] = None) -> Dict[str, 
                 "name": cust["name"],
                 "card_last4": cust["card_last4"],
                 "status": cust["status"],
+                "freeze_reason": cust.get("freeze_reason"),
                 "verified": False,
             }
     return {"error": "customer_not_found"}
+
 
 
 def get_transaction(customer_id: str, txn_id: str, store: Optional[FixtureStore] = None) -> Dict[str, Any]:

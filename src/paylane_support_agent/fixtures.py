@@ -19,6 +19,7 @@ DEFAULT_CUSTOMERS: Dict[str, Dict[str, Any]] = {
         "name": "Sarah Chen",
         "card_last4": "4821",
         "status": "active",
+        "freeze_reason": None,
         "verified": False,
     },
     "cust_alex_102": {
@@ -27,6 +28,7 @@ DEFAULT_CUSTOMERS: Dict[str, Dict[str, Any]] = {
         "name": "Alex Rivera",
         "card_last4": "9934",
         "status": "frozen",
+        "freeze_reason": "Precautionary security freeze after unusual transaction activity was flagged",
         "verified": False,
     },
     "cust_marcus_103": {
@@ -35,6 +37,7 @@ DEFAULT_CUSTOMERS: Dict[str, Dict[str, Any]] = {
         "name": "Marcus Vance",
         "card_last4": "1122",
         "status": "active",
+        "freeze_reason": None,
         "verified": False,
     },
     "cust_deepak_104": {
@@ -43,9 +46,11 @@ DEFAULT_CUSTOMERS: Dict[str, Dict[str, Any]] = {
         "name": "Deepak Singla",
         "card_last4": "7788",
         "status": "active",
+        "freeze_reason": None,
         "verified": False,
     },
 }
+
 
 # Initial deterministic transactions
 # Age is calculated relative to REFERENCE_TIMESTAMP (2026-10-12T00:00:00Z)
