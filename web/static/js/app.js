@@ -206,24 +206,40 @@ function setupOneClickDeploy() {
 let supabaseClient = null;
 
 async function initSupabase() {
-  let supabaseUrl = window.SUPABASE_URL || safeGetStorage("paylane_supabase_url") || "";
-  let supabaseAnonKey = window.SUPABASE_ANON_KEY || safeGetStorage("paylane_supabase_key") || "";
+  let supabaseUrl = window.SUPABASE_URL || safeGetStorage("paylane_supabase_url") || "https://nqeccpgrjkfgsounxxim.supabase.co";
+  let supabaseAnonKey = window.SUPABASE_ANON_KEY || safeGetStorage("paylane_supabase_key") || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xZWNjcGdyamtmZ3NvdW54eGltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4NjA2NDUsImV4cCI6MjEwNzQzNjY0NX0.vWnwuDEdw3cDTsuDd8rQCzjxQ_1UkkVllQLG-fggSkw";
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    try {
-      const cfg = await api.getConfig();
-      if (cfg.supabase_url && cfg.supabase_anon_key) {
-        supabaseUrl = cfg.supabase_url;
-        supabaseAnonKey = cfg.supabase_anon_key;
-        safeSetStorage("paylane_supabase_url", supabaseUrl);
-        safeSetStorage("paylane_supabase_key", supabaseAnonKey);
-      }
-    } catch (_) {}
-  }
+  try {
+    const cfg = await api.getConfig();
+    if (cfg && cfg.supabase_url && cfg.supabase_anon_key) {
+      supabaseUrl = cfg.supabase_url;
+      supabaseAnonKey = cfg.supabase_anon_key;
+      safeSetStorage("paylane_supabase_url", supabaseUrl);
+      safeSetStorage("paylane_supabase_key", supabaseAnonKey);
+    }
+  } catch (_) {}
 
   if (window.supabase && supabaseUrl && supabaseAnonKey) {
     try {
       supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+      // Listen to auth state changes (e.g. Google OAuth redirect callback)
+      supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (session && session.user) {
+          const u = session.user;
+          const userObj = {
+            name: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Deepak Singla",
+            email: u.email || "deepak.singla@paylane.com",
+            provider: "supabase",
+            avatar_url: u.user_metadata?.avatar_url || ""
+          };
+          localStorage.setItem("paylane_user", JSON.stringify(userObj));
+          const overlay = document.getElementById("auth-overlay");
+          if (overlay) {
+            overlay.classList.remove("active");
+            overlay.style.display = "none";
+          }
+        }
+      });
     } catch (e) {
       console.warn("Supabase init warning:", e);
     }
