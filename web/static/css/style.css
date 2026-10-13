@@ -1356,13 +1356,18 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  z-index: 1000;
+  z-index: 99999;
   animation: slideUp var(--transition-fast) ease-out;
 }
 
 @keyframes slideUp {
   from { transform: translateY(20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes toastSlideDown {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(20px); opacity: 0; }
 }
 
 /* ==========================================================================

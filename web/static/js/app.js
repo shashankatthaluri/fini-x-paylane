@@ -994,8 +994,22 @@ function setupAgentStudio() {
 
   if (btnApplyParams) {
     btnApplyParams.addEventListener("click", async () => {
-      await saveCurrentDraft();
-      await loadStudioData();
+      const origText = btnApplyParams.textContent;
+      try {
+        btnApplyParams.disabled = true;
+        btnApplyParams.textContent = "Applying...";
+        await saveCurrentDraft();
+        await loadStudioData();
+        btnApplyParams.textContent = "✓ Applied";
+        setTimeout(() => {
+          btnApplyParams.textContent = origText;
+          btnApplyParams.disabled = false;
+        }, 1200);
+      } catch (err) {
+        showDeployToast("Failed to apply parameters: " + err.message);
+        btnApplyParams.disabled = false;
+        btnApplyParams.textContent = origText;
+      }
     });
   }
 
@@ -1013,10 +1027,16 @@ function setupAgentStudio() {
 
   if (btnPublish) {
     btnPublish.addEventListener("click", async () => {
-      const limitVal = parseFloat(inputLimit?.value || "75.0");
-      const ageVal = parseInt(inputAge?.value || "30", 10);
-      const notes = prompt("Enter release notes for v1.5:", `Updated policy limits ($${limitVal}, <${ageVal}d) & system instructions`);
-      if (notes) {
+      const origText = btnPublish.textContent;
+      try {
+        btnPublish.disabled = true;
+        btnPublish.textContent = "Publishing...";
+
+        const limitVal = parseFloat(inputLimit?.value || "75.0");
+        const ageVal = parseInt(inputAge?.value || "30", 10);
+        const defaultNotes = `Updated policy limits ($${limitVal}, <${ageVal}d) & system instructions`;
+        const notes = prompt("Enter release notes for v1.5 (or click OK for default):", defaultNotes) || defaultNotes;
+
         await api.publishAgentVersion({
           version: "v1.5",
           notes: notes,
@@ -1030,6 +1050,11 @@ function setupAgentStudio() {
         await loadStudioData();
         const statusBadge = document.getElementById("topbar-agent-status");
         if (statusBadge) statusBadge.textContent = "Active: v1.5 Live";
+      } catch (err) {
+        showDeployToast("Publish failed: " + err.message);
+      } finally {
+        btnPublish.disabled = false;
+        btnPublish.textContent = origText;
       }
     });
   }

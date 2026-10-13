@@ -1322,8 +1322,16 @@ class AddPolicyDocumentRequest(BaseModel):
 
 @app.post("/api/knowledge/documents")
 def add_knowledge_document(req: AddPolicyDocumentRequest):
-    """Add a new grounding policy document and append grounding note to active agent instructions."""
+    """Add or update a grounding policy document and refresh active agent instructions with latest version."""
     import uuid
+    import re
+
+    # Conflict & Versioning resolution:
+    # If a document with the same title exists, archive/remove older version so the recent upload takes precedence
+    existing_idx = next((i for i, d in enumerate(KNOWLEDGE_DOCUMENTS) if d.get("title", "").strip().lower() == req.title.strip().lower()), None)
+    if existing_idx is not None:
+        KNOWLEDGE_DOCUMENTS.pop(existing_idx)
+
     doc_id = f"doc_{uuid.uuid4().hex[:8]}"
     new_doc = {
         "id": doc_id,
@@ -1335,12 +1343,17 @@ def add_knowledge_document(req: AddPolicyDocumentRequest):
         "content": req.content,
         "citations_count": 0,
     }
+    # Latest document always placed at the very top (index 0)
     KNOWLEDGE_DOCUMENTS.insert(0, new_doc)
 
-    # Ground active agent draft with the new policy rules
-    grounding_snippet = f"\n\nGrounding Policy [{req.title}]:\n{req.summary}\nKey terms: {req.content[:300]}"
-    if req.title not in ACTIVE_DRAFT.get("instructions", ""):
-        ACTIVE_DRAFT["instructions"] = ACTIVE_DRAFT.get("instructions", "") + grounding_snippet
+    # Clean any previous grounding snippet for this title from active agent instructions
+    current_instructions = ACTIVE_DRAFT.get("instructions", "")
+    escaped_title = re.escape(req.title)
+    cleaned_instructions = re.sub(rf"\n*Grounding Policy \[{escaped_title}\]:[\s\S]*?(?=\n\nGrounding Policy|\Z)", "", current_instructions)
+
+    # Append the latest authoritative policy update
+    grounding_snippet = f"\n\nGrounding Policy [{req.title}] (Updated Authoritative):\n{req.summary}\nKey terms: {req.content[:400]}"
+    ACTIVE_DRAFT["instructions"] = cleaned_instructions.strip() + grounding_snippet
 
     return {"status": "success", "document": new_doc, "draft": ACTIVE_DRAFT}
 
