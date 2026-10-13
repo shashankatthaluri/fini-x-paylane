@@ -222,8 +222,18 @@ async function initSupabase() {
   if (window.supabase && supabaseUrl && supabaseAnonKey) {
     try {
       supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-      // Listen to auth state changes (e.g. Google OAuth redirect callback)
+      // Listen to auth state changes (e.g. Google OAuth redirect callback, sign in, sign out)
       supabaseClient.auth.onAuthStateChange((event, session) => {
+        const overlay = document.getElementById("auth-overlay");
+        if (event === "SIGNED_OUT" || !session) {
+          localStorage.removeItem("paylane_user");
+          if (overlay) {
+            overlay.classList.add("active");
+            overlay.style.display = "flex";
+          }
+          return;
+        }
+
         if (session && session.user) {
           const u = session.user;
           const userObj = {
@@ -233,11 +243,17 @@ async function initSupabase() {
             avatar_url: u.user_metadata?.avatar_url || ""
           };
           localStorage.setItem("paylane_user", JSON.stringify(userObj));
-          const overlay = document.getElementById("auth-overlay");
           if (overlay) {
             overlay.classList.remove("active");
             overlay.style.display = "none";
           }
+          // Update sidebar labels
+          const nameEl = document.querySelector(".org-name");
+          const roleEl = document.querySelector(".org-role");
+          const avatarEl = document.querySelector(".org-avatar");
+          if (nameEl) nameEl.textContent = userObj.name;
+          if (roleEl) roleEl.textContent = userObj.email;
+          if (avatarEl) avatarEl.textContent = (userObj.name || "D").charAt(0).toUpperCase();
         }
       });
     } catch (e) {
@@ -482,6 +498,7 @@ function setupSidebarProfile() {
   const btnLogout = document.getElementById("btn-sidebar-logout");
   if (btnLogout) {
     btnLogout.addEventListener("click", async () => {
+      // 1. Terminate Supabase active session
       if (supabaseClient) {
         try {
           await supabaseClient.auth.signOut();
@@ -489,16 +506,46 @@ function setupSidebarProfile() {
           console.warn("Supabase signout warning:", e);
         }
       }
+
+      // 2. Clear persisted local storage auth tokens
       localStorage.removeItem("paylane_user");
-      
+
+      // 3. Reset form inputs & errors
+      const emailInput = document.getElementById("auth-email-input");
+      const passInput = document.getElementById("auth-password-input");
+      const errorMsg = document.getElementById("auth-error-msg");
+      const tabSignIn = document.getElementById("tab-auth-signin");
+      const tabSignUp = document.getElementById("tab-auth-signup");
+      const nameGroup = document.getElementById("auth-name-group");
+      const confirmGroup = document.getElementById("auth-confirm-pw-group");
+      const submitBtnText = document.getElementById("btn-auth-submit-text");
+
+      if (emailInput) emailInput.value = "";
+      if (passInput) passInput.value = "";
+      if (errorMsg) {
+        errorMsg.textContent = "";
+        errorMsg.style.display = "none";
+      }
+
+      // Ensure Sign In tab is active by default
+      if (tabSignIn && tabSignUp) {
+        tabSignIn.classList.add("active");
+        tabSignIn.setAttribute("aria-selected", "true");
+        tabSignUp.classList.remove("active");
+        tabSignUp.setAttribute("aria-selected", "false");
+        if (nameGroup) nameGroup.style.display = "none";
+        if (confirmGroup) confirmGroup.style.display = "none";
+        if (submitBtnText) submitBtnText.textContent = "Sign in";
+      }
+
+      // 4. Force reveal the auth overlay modal immediately
       const overlay = document.getElementById("auth-overlay");
       if (overlay) {
         overlay.classList.add("active");
-        overlay.style.display = "flex";
+        overlay.style.cssText = "display: flex !important; pointer-events: auto !important; visibility: visible !important; opacity: 1 !important;";
       }
-      
-      showDeployToast("Logged out. Please sign in to continue.");
-      switchView("overview");
+
+      showDeployToast("Logged out successfully. Please sign in to continue.");
     });
   }
 }
