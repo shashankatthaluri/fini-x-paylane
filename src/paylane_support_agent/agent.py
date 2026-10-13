@@ -21,10 +21,12 @@ from paylane_support_agent.session import (
 )
 from paylane_support_agent.tools import (
     escalate_to_human,
+    freeze_card,
     get_customer,
     get_store,
     get_transaction,
 )
+
 
 SYSTEM_PROMPT = """You are Paylane's AI customer support assistant.
 Paylane is a fintech app providing cards, transfers, and refunds.
@@ -63,6 +65,10 @@ Refund Policy Rules & Immediate Escalation:
      - In your final response to the customer, state why automatic refund was not possible and provide the confirmed ticket ID returned by the escalation tool.
      - NEVER promise or ask if they want escalation—execute `escalate_to_human` directly.
 
+Card Security & Freeze Policy (Emergency Freezing Allowed, Unfreezing Strictly Human Escalated):
+- EMERGENCY CARD FREEZE: If a verified customer reports their card lost or stolen, or asks to freeze/lock their card, call `freeze_card(customer_id)` immediately to protect their funds. Confirm that the card has been successfully frozen.
+- CARD UNFREEZE RESTRICTION: The agent CANNOT unfreeze a card under any circumstances. If a customer asks to unfreeze their card, explain that the card is frozen and call `escalate_to_human(customer_id, summary)` immediately.
+
 Mandatory Escalation Triggers:
 - Refunds over $75, transactions 30 days old or older, or pending charges (call get_transaction first, then escalate_to_human immediately).
 - Requests to unfreeze a frozen card: call `get_customer(email)` to verify status, explain it is frozen, and call `escalate_to_human` immediately.
@@ -70,17 +76,18 @@ Mandatory Escalation Triggers:
 - Customer ID requirement: `escalate_to_human` requires a valid customer ID. If customer ID is unknown, politely request their account email before escalating.
 
 Truthfulness Invariant & Communication Boundaries:
-- NEVER claim a refund was issued or that a ticket was created unless the tool output explicitly confirms success with a refund_id or ticket_id.
-- NEVER make unsupported promises or operational guarantees. Do NOT state that a card has been or will be secured, blocked, or protected unless confirmed by a tool.
+- NEVER claim a refund was issued, a card was frozen, or a ticket was created unless the tool output explicitly confirms success with a refund_id, status: 'frozen', or ticket_id.
+- NEVER make unsupported promises or operational guarantees. Do NOT state that a card has been unfrozen.
 - NEVER invent response-time estimates (e.g. do NOT say "within a few hours", "within 24 hours", or "by tomorrow").
-- When an issue is escalated, state that it has been handed over to the human specialist team with their ticket ID. If asked about timelines or card security, explain that you cannot guarantee specific timeframes or secure cards directly, and that the specialist team will review and contact them via email as soon as possible.
+- When an issue is escalated, state that it has been handed over to the human specialist team with their ticket ID.
 
 Strict Grounding & Line of Control (Zero Hallucination):
 - NEVER make up or extrapolate facts, timelines, policies, or outcomes not explicitly provided by verified tools or knowledge sources.
 - If information is missing, ambiguous, or not covered by your instructions, explicitly state what is missing and offer to escalate to a specialist.
-- NEVER attempt or pretend to perform actions outside the 4 authorized tools (get_customer, get_transaction, issue_refund, escalate_to_human).
+- Authorized tools: get_customer, get_transaction, issue_refund, escalate_to_human, freeze_card.
 - Always remain strictly within your line of control: transparent about what is confirmed vs. what requires human review.
 """
+
 
 # Authoritative 4 public tools exposed to the LLM (OpenAI Tool Calling Format)
 PUBLIC_TOOLS_SCHEMA: List[Dict[str, Any]] = [
@@ -168,7 +175,26 @@ PUBLIC_TOOLS_SCHEMA: List[Dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "freeze_card",
+            "description": "Emergency protective action: immediately freeze a customer's card when they report it lost or stolen, or suspect unauthorized card access. Requires customer identity verification first.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "customer_id": {
+                        "type": "string",
+                        "description": "The verified customer's unique ID whose card should be immediately frozen.",
+                    },
+                },
+                "required": ["customer_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
+
 
 
 def dispatch_tool_call(
@@ -188,8 +214,8 @@ def dispatch_tool_call(
     """
     s = store or get_store()
 
-    # Invariant: Strictly the 4 public tools
-    allowed_tools = {"get_customer", "get_transaction", "issue_refund", "escalate_to_human"}
+    # Authorized tools (including enhanced emergency freeze capability)
+    allowed_tools = {"get_customer", "get_transaction", "issue_refund", "escalate_to_human", "freeze_card"}
     if tool_name not in allowed_tools:
         session.record_trace("disallowed_tool_call", {"tool": tool_name, "args": tool_args})
         return {"error": f"Tool '{tool_name}' is not recognized or permitted."}
@@ -243,6 +269,35 @@ def dispatch_tool_call(
             )
             return gate_result
 
+        elif tool_name == "freeze_card":
+            customer_id = tool_args.get("customer_id")
+            if not customer_id:
+                customer_id = session.customer_id
+            
+            # Security Invariant: Card freeze requires verified customer session
+            if not session.verified or not session.customer_id:
+                session.record_trace("unverified_card_freeze_blocked", {
+                    "session_verified": session.verified,
+                    "requested_customer": customer_id,
+                })
+                return {"error": "Customer identity must be verified before emergency card freeze can be executed."}
+            
+            # Ownership check: Customer cannot freeze someone else's card
+            if customer_id != session.customer_id:
+                session.record_trace("freeze_ownership_mismatch", {
+                    "session_customer": session.customer_id,
+                    "requested_customer": customer_id,
+                })
+                return {"error": "Customer cannot freeze a card belonging to another account."}
+            
+            res = freeze_card(customer_id=session.customer_id, store=s)
+            session.record_trace("tool_execution", {
+                "tool": "freeze_card",
+                "args": {"customer_id": session.customer_id},
+                "result": res,
+            })
+            return res
+
         elif tool_name == "escalate_to_human":
             customer_id = tool_args.get("customer_id")
             summary = tool_args.get("summary")
@@ -269,6 +324,7 @@ def dispatch_tool_call(
                 "result": res,
             })
             return res
+
 
     except Exception as e:
         session.record_trace("tool_execution_exception", {"tool": tool_name, "error": str(e)})

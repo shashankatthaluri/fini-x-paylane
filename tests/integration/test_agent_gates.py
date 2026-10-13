@@ -30,17 +30,18 @@ def store():
     return FixtureStore()
 
 
-def test_public_tools_schema_strictly_four():
-    """Requirement: Exactly 4 public tools exposed to model, no 5th verification tool."""
+def test_public_tools_schema():
+    """Requirement: Authorized tools exposed to model, no unauthorized verify_customer tool."""
     tool_names = [t["function"]["name"] for t in PUBLIC_TOOLS_SCHEMA]
-    assert len(tool_names) == 4
+    assert "verify_customer" not in tool_names
     assert set(tool_names) == {
         "get_customer",
         "get_transaction",
         "issue_refund",
         "escalate_to_human",
+        "freeze_card",
     }
-    assert "verify_customer" not in tool_names
+
 
 
 def test_unverified_model_refund_blocked_before_execution(store):
@@ -253,3 +254,37 @@ def test_eligible_refund_through_dispatcher_succeeds(store):
     assert res["ok"] is True
     assert "refund_id" in res
     assert store.transactions["txn_101_eligible"]["status"] == "refunded"
+
+
+def test_freeze_card_requires_verification(store):
+    """Emergency card freeze must require verified customer session."""
+    unverified = SessionState()
+    assert unverified.verified is False
+
+    res = dispatch_tool_call(
+        tool_name="freeze_card",
+        tool_args={"customer_id": "cust_sarah_101"},
+        session=unverified,
+        store=store,
+    )
+    assert "error" in res
+    assert "verified" in res["error"]
+    assert store.customers["cust_sarah_101"]["status"] == "active"
+
+
+def test_freeze_card_verified_customer_succeeds(store):
+    """Verified customer reporting lost card has card frozen immediately."""
+    verified = SessionState()
+    verified.verified = True
+    verified.customer_id = "cust_sarah_101"
+
+    res = dispatch_tool_call(
+        tool_name="freeze_card",
+        tool_args={"customer_id": "cust_sarah_101"},
+        session=verified,
+        store=store,
+    )
+    assert res["ok"] is True
+    assert res["status"] == "frozen"
+    assert store.customers["cust_sarah_101"]["status"] == "frozen"
+

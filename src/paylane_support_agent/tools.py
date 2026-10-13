@@ -124,3 +124,22 @@ def escalate_to_human(customer_id: str, summary: str, store: Optional[FixtureSto
         "summary": (summary or "").strip(),
     }
     return {"ticket_id": ticket_id}
+
+
+def freeze_card(customer_id: str, store: Optional[FixtureStore] = None) -> Dict[str, Any]:
+    """Emergency card freeze tool.
+    
+    Protective, loss-mitigating action for lost or stolen cards.
+    Mutates customer card status to 'frozen' immediately upon verification.
+    """
+    s = store or get_store()
+    if not customer_id or not customer_id.strip():
+        return {"ok": False, "error": "missing_customer_id"}
+    
+    cust = s.customers.get(customer_id.strip())
+    if not cust:
+        return {"ok": False, "error": "customer_not_found"}
+    
+    cust["status"] = "frozen"
+    return {"ok": True, "status": "frozen", "customer_id": cust["id"]}
+

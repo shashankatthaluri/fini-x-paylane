@@ -92,3 +92,24 @@ def test_escalate_to_human_success(store):
 def test_escalate_to_human_missing_id(store):
     result = escalate_to_human("", "No customer ID available", store=store)
     assert result == {"error": "missing_customer_id"}
+
+
+def test_freeze_card_success(store):
+    from paylane_support_agent.tools import freeze_card
+    assert store.customers["cust_sarah_101"]["status"] == "active"
+    result = freeze_card("cust_sarah_101", store=store)
+    assert result["ok"] is True
+    assert result["status"] == "frozen"
+    assert store.customers["cust_sarah_101"]["status"] == "frozen"
+
+
+def test_freeze_card_not_found_or_invalid(store):
+    from paylane_support_agent.tools import freeze_card
+    res_empty = freeze_card("", store=store)
+    assert res_empty["ok"] is False
+    assert res_empty["error"] == "missing_customer_id"
+
+    res_missing = freeze_card("cust_nonexistent", store=store)
+    assert res_missing["ok"] is False
+    assert res_missing["error"] == "customer_not_found"
+

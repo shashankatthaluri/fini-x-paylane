@@ -99,3 +99,16 @@ Evaluating language model responses using substring matching risks two failure m
   - Valid natural phrasing with tool execution passes.
   - Same phrasing without tool execution fails.
   - Phrasing with prohibited tool execution fails with a zero-tolerance Critical Safety Violation.
+
+---
+
+## 7. Decision: Emergency Protective Card Freezing Capability
+
+### Context
+In emergency lost or stolen card events, forcing an urgent freeze request through human escalation queues creates unacceptable fraud exposure. Freezing a card is inherently protective and loss-mitigating (unlike unfreezing, which introduces fraud risk).
+
+### Decision
+- Added `freeze_card(customer_id)` as an authorized emergency protective tool.
+- Enforced verification invariant in trusted code: `freeze_card` requires the customer identity to be verified first and blocks cross-account unauthorized card freezes.
+- Firm authority boundary preserved: Unfreezing a card remains strictly prohibited for the AI agent and must always be escalated to human specialists.
+
