@@ -144,8 +144,10 @@ class FixtureStore:
         self.transactions: Dict[str, Dict[str, Any]] = deepcopy(DEFAULT_TRANSACTIONS)
         self.tickets: Dict[str, Dict[str, Any]] = deepcopy(DEFAULT_TICKETS)
         self.refunds: Dict[str, Dict[str, Any]] = deepcopy(DEFAULT_REFUNDS)
+        self.replacements: Dict[str, Dict[str, Any]] = {}
         self.ticket_counter: int = 1000
         self.refund_counter: int = 5000
+        self.replacement_counter: int = 2000
 
     def reset(self) -> None:
         """Reset all in-memory collections to pristine state."""
@@ -153,5 +155,8 @@ class FixtureStore:
         self.transactions = deepcopy(DEFAULT_TRANSACTIONS)
         self.tickets = deepcopy(DEFAULT_TICKETS)
         self.refunds = deepcopy(DEFAULT_REFUNDS)
+        self.replacements = {}
         self.ticket_counter = 1000
         self.refund_counter = 5000
+        self.replacement_counter = 2000
+

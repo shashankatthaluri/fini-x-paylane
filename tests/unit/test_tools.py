@@ -113,3 +113,29 @@ def test_freeze_card_not_found_or_invalid(store):
     assert res_missing["ok"] is False
     assert res_missing["error"] == "customer_not_found"
 
+
+def test_list_recent_transactions_success(store):
+    from paylane_support_agent.tools import list_recent_transactions
+    res = list_recent_transactions("cust_sarah_101", limit=3, store=store)
+    assert "transactions" in res
+    assert len(res["transactions"]) <= 3
+    assert res["total_found"] >= 5
+    # Verify transaction structure
+    first = res["transactions"][0]
+    assert "txn_id" in first
+    assert "merchant" in first
+    assert "amount" in first
+
+
+def test_request_card_replacement_success(store):
+    from paylane_support_agent.tools import request_card_replacement
+    assert store.customers["cust_sarah_101"]["status"] == "active"
+    res = request_card_replacement("cust_sarah_101", reason="lost_or_stolen", shipping_speed="expedited", store=store)
+    assert res["ok"] is True
+    assert "card_order_" in res["order_id"]
+    assert res["card_status"] == "frozen"
+    # Old card is automatically frozen in customer record
+    assert store.customers["cust_sarah_101"]["status"] == "frozen"
+    assert store.replacements[res["order_id"]]["shipping_speed"] == "expedited"
+
+

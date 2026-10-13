@@ -143,3 +143,68 @@ def freeze_card(customer_id: str, store: Optional[FixtureStore] = None) -> Dict[
     cust["status"] = "frozen"
     return {"ok": True, "status": "frozen", "customer_id": cust["id"]}
 
+
+def list_recent_transactions(customer_id: str, limit: int = 5, store: Optional[FixtureStore] = None) -> Dict[str, Any]:
+    """Retrieve recent transaction history for an identified customer.
+    
+    Returns recent settled, pending, and refunded charges without requiring the customer
+    to memorize or recite exact transaction IDs.
+    """
+    s = store or get_store()
+    if not customer_id or not customer_id.strip():
+        return {"error": "missing_customer_id"}
+    
+    # Filter transactions belonging to this customer
+    customer_txns = [
+        {
+            "txn_id": tid,
+            "merchant": t["merchant"],
+            "amount": t["amount"],
+            "date": t["date"],
+            "status": t["status"],
+        }
+        for tid, t in s.transactions.items()
+        if t.get("customer_id") == customer_id.strip()
+    ]
+    
+    # Sort newest first
+    customer_txns.sort(key=lambda x: x["date"], reverse=True)
+    return {"transactions": customer_txns[:limit], "total_found": len(customer_txns)}
+
+
+def request_card_replacement(customer_id: str, reason: str = "lost_or_stolen", shipping_speed: str = "standard", store: Optional[FixtureStore] = None) -> Dict[str, Any]:
+    """Order a replacement card for an identified customer.
+    
+    Automatically freezes any existing active card and issues a replacement order tracking ID.
+    """
+    s = store or get_store()
+    if not customer_id or not customer_id.strip():
+        return {"error": "missing_customer_id"}
+    
+    cust = s.customers.get(customer_id.strip())
+    if not cust:
+        return {"error": "customer_not_found"}
+    
+    # Defensive safety: Ensure old card is frozen
+    cust["status"] = "frozen"
+    
+    s.replacement_counter += 1
+    order_id = f"card_order_{s.replacement_counter}"
+    s.replacements[order_id] = {
+        "order_id": order_id,
+        "customer_id": customer_id.strip(),
+        "reason": reason,
+        "shipping_speed": shipping_speed,
+        "status": "ordered",
+        "estimated_delivery_days": 2 if shipping_speed == "expedited" else 5,
+    }
+    
+    return {
+        "ok": True,
+        "order_id": order_id,
+        "card_status": "frozen",
+        "estimated_delivery_days": 2 if shipping_speed == "expedited" else 5,
+        "message": f"Replacement card ordered successfully ({order_id}). Your old card remains securely frozen.",
+    }
+
+

@@ -40,7 +40,10 @@ def test_public_tools_schema():
         "issue_refund",
         "escalate_to_human",
         "freeze_card",
+        "list_recent_transactions",
+        "request_card_replacement",
     }
+
 
 
 

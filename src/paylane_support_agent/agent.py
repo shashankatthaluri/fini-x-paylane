@@ -25,7 +25,10 @@ from paylane_support_agent.tools import (
     get_customer,
     get_store,
     get_transaction,
+    list_recent_transactions,
+    request_card_replacement,
 )
+
 
 
 SYSTEM_PROMPT = """You are Paylane's AI customer support assistant.
@@ -193,7 +196,56 @@ PUBLIC_TOOLS_SCHEMA: List[Dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_recent_transactions",
+            "description": "List the last 3 to 5 transactions for a verified customer. Use this when the customer asks about their recent activity or wants to identify a charge without knowing their transaction ID.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "customer_id": {
+                        "type": "string",
+                        "description": "The verified customer's unique ID.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Number of transactions to return (default 5).",
+                    },
+                },
+                "required": ["customer_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "request_card_replacement",
+            "description": "Order a replacement physical card for a verified customer whose card was lost, damaged, or stolen. Ensures the old card is frozen and issues an order confirmation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "customer_id": {
+                        "type": "string",
+                        "description": "The verified customer's unique ID.",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Reason for replacement: 'lost_or_stolen' or 'damaged'.",
+                    },
+                    "shipping_speed": {
+                        "type": "string",
+                        "description": "'standard' (5 days) or 'expedited' (2 days).",
+                    },
+                },
+                "required": ["customer_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
+
 
 
 
@@ -214,8 +266,17 @@ def dispatch_tool_call(
     """
     s = store or get_store()
 
-    # Authorized tools (including enhanced emergency freeze capability)
-    allowed_tools = {"get_customer", "get_transaction", "issue_refund", "escalate_to_human", "freeze_card"}
+    # Authorized tools (including enhanced emergency freeze and lifecycle capabilities)
+    allowed_tools = {
+        "get_customer",
+        "get_transaction",
+        "issue_refund",
+        "escalate_to_human",
+        "freeze_card",
+        "list_recent_transactions",
+        "request_card_replacement",
+    }
+
     if tool_name not in allowed_tools:
         session.record_trace("disallowed_tool_call", {"tool": tool_name, "args": tool_args})
         return {"error": f"Tool '{tool_name}' is not recognized or permitted."}
@@ -297,6 +358,71 @@ def dispatch_tool_call(
                 "result": res,
             })
             return res
+
+        elif tool_name == "list_recent_transactions":
+            customer_id = tool_args.get("customer_id") or session.customer_id
+            limit = int(tool_args.get("limit", 5))
+
+            # Security Invariant: Listing transactions requires verified customer session
+            if not session.verified or not session.customer_id:
+                session.record_trace("unverified_transaction_list_blocked", {
+                    "session_verified": session.verified,
+                    "requested_customer": customer_id,
+                })
+                return {"error": "Customer identity must be verified before account transaction history can be accessed."}
+
+            if customer_id != session.customer_id:
+                session.record_trace("transaction_list_ownership_mismatch", {
+                    "session_customer": session.customer_id,
+                    "requested_customer": customer_id,
+                })
+                return {"error": "Customer cannot access transaction history belonging to another account."}
+
+            res = list_recent_transactions(customer_id=session.customer_id, limit=limit, store=s)
+            session.record_trace("tool_execution", {
+                "tool": "list_recent_transactions",
+                "args": {"customer_id": session.customer_id, "limit": limit},
+                "result": res,
+            })
+            return res
+
+        elif tool_name == "request_card_replacement":
+            customer_id = tool_args.get("customer_id") or session.customer_id
+            reason = str(tool_args.get("reason", "lost_or_stolen"))
+            shipping_speed = str(tool_args.get("shipping_speed", "standard"))
+
+            # Security Invariant: Card replacement requires verified customer session
+            if not session.verified or not session.customer_id:
+                session.record_trace("unverified_card_replacement_blocked", {
+                    "session_verified": session.verified,
+                    "requested_customer": customer_id,
+                })
+                return {"error": "Customer identity must be verified before card replacement can be ordered."}
+
+            if customer_id != session.customer_id:
+                session.record_trace("replacement_ownership_mismatch", {
+                    "session_customer": session.customer_id,
+                    "requested_customer": customer_id,
+                })
+                return {"error": "Customer cannot order a card replacement for another account."}
+
+            res = request_card_replacement(
+                customer_id=session.customer_id,
+                reason=reason,
+                shipping_speed=shipping_speed,
+                store=s,
+            )
+            session.record_trace("tool_execution", {
+                "tool": "request_card_replacement",
+                "args": {
+                    "customer_id": session.customer_id,
+                    "reason": reason,
+                    "shipping_speed": shipping_speed,
+                },
+                "result": res,
+            })
+            return res
+
 
         elif tool_name == "escalate_to_human":
             customer_id = tool_args.get("customer_id")
