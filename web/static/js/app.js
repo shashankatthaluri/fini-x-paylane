@@ -1106,17 +1106,97 @@ function setupAgentStudio() {
     });
   }
 
+  // Pre-Publish Dynamic Briefing Modal Elements
+  const pubModal = document.getElementById("modal-publish-briefing");
+  const pubBtnClose = document.getElementById("btn-close-publish-modal");
+  const pubBtnCancel = document.getElementById("btn-cancel-publish");
+  const pubBtnConfirm = document.getElementById("btn-confirm-publish-agent");
+  const pubParamLimit = document.getElementById("pub-param-limit");
+  const pubParamAge = document.getElementById("pub-param-age");
+  const pubParamModel = document.getElementById("pub-param-model");
+  const pubParamTemp = document.getElementById("pub-param-temp");
+  const pubReleaseNotes = document.getElementById("pub-release-notes");
+  const pubEmailContent = document.getElementById("pub-email-content");
+
+  const closePublishModal = () => {
+    if (pubModal) pubModal.classList.remove("active");
+  };
+  if (pubBtnClose) pubBtnClose.addEventListener("click", closePublishModal);
+  if (pubBtnCancel) pubBtnCancel.addEventListener("click", closePublishModal);
+
+  const generateDynamicEmailContent = (limit, age, model, temp, notes) => {
+    const today = new Date().toISOString().split("T")[0];
+    return `Subject: Paylane Support AI v1.5 Release Briefing & Safety Verification
+
+Dear Deepak Singla (Head of Customer Support),
+
+We are preparing to deploy version v1.5 of the Paylane AI Customer Support Agent to production. Below is the operational briefing detailing what the agent does, what it will not do, and our exact runtime parameters:
+
+1. ACTIVE RUNTIME POLICY GATES
+- Auto-Refund Threshold: Up to $${limit.toFixed(2)} per transaction (settled charges only).
+- Transaction Age Eligibility: Strictly under ${age} days old (relative to reference date).
+- LLM Provider / Model: ${model} (sampling temperature: ${temp}).
+- Release Summary: ${notes}
+
+2. CORE CAPABILITIES (WHAT IT DOES)
+- Resolves everyday customer inquiries (transactions, balances, card states) in 1-3 short, warm sentences.
+- Auto-processes eligible micro-refunds without human intervention if and only if customer identity is verified.
+- Seamlessly hands off edge cases to human specialists with grounded ticket summaries (e.g., Ticket #tick_1004).
+
+3. SAFETY INVARIANTS & HARD BOUNDARIES (WHAT IT CANNOT DO)
+- Will NEVER refund amounts above $${limit.toFixed(2)} or charges older than ${age} days (blocked in Python code).
+- Will NEVER unfreeze a frozen card directly (must escalate to your team).
+- Will NEVER disclose stored email addresses or card digits under any circumstances.
+- Immediately routes legal action threats, fraud claims > $500, and account closure requests to your queue.
+
+4. OPERATIONAL ARRANGEMENTS BEFORE LAUNCH
+- Please confirm support lead coverage for human escalation tickets routed to your team.
+- Confirm whether pending authorization holds should remain non-refundable pending final bank settlement.
+
+Sincerely,
+Paylane AI Systems & Safety Engineering (Deployment Bot)`;
+  };
+
   if (btnPublish) {
     btnPublish.addEventListener("click", async () => {
-      const origText = btnPublish.textContent;
+      const limitVal = parseFloat(inputLimit?.value || "75.0");
+      const ageVal = parseInt(inputAge?.value || "30", 10);
+      const modelVal = selModel?.value || "gpt-4o-mini";
+      const tempVal = parseFloat(selTemp?.value || "0.0");
+      const defaultNotes = `Updated policy limits ($${limitVal}, <${ageVal}d) & system instructions`;
+
+      if (pubParamLimit) pubParamLimit.textContent = `$${limitVal.toFixed(2)}`;
+      if (pubParamAge) pubParamAge.textContent = `< ${ageVal} Days`;
+      if (pubParamModel) pubParamModel.textContent = modelVal;
+      if (pubParamTemp) pubParamTemp.textContent = `${tempVal.toFixed(1)} (${tempVal === 0 ? 'Deterministic' : 'Sampled'})`;
+      if (pubReleaseNotes) pubReleaseNotes.value = defaultNotes;
+      if (pubEmailContent) pubEmailContent.value = generateDynamicEmailContent(limitVal, ageVal, modelVal, tempVal, defaultNotes);
+
+      // Dynamically update email content if user edits the release notes in the modal
+      if (pubReleaseNotes) {
+        pubReleaseNotes.oninput = () => {
+          if (pubEmailContent) {
+            pubEmailContent.value = generateDynamicEmailContent(limitVal, ageVal, modelVal, tempVal, pubReleaseNotes.value.trim() || defaultNotes);
+          }
+        };
+      }
+
+      if (pubModal) pubModal.classList.add("active");
+    });
+  }
+
+  if (pubBtnConfirm) {
+    pubBtnConfirm.addEventListener("click", async () => {
+      const origText = pubBtnConfirm.textContent;
       try {
-        btnPublish.disabled = true;
-        btnPublish.textContent = "Publishing...";
+        pubBtnConfirm.disabled = true;
+        pubBtnConfirm.textContent = "Publishing...";
 
         const limitVal = parseFloat(inputLimit?.value || "75.0");
         const ageVal = parseInt(inputAge?.value || "30", 10);
-        const defaultNotes = `Updated policy limits ($${limitVal}, <${ageVal}d) & system instructions`;
-        const notes = prompt("Enter release notes for v1.5 (or click OK for default):", defaultNotes) || defaultNotes;
+        const modelVal = selModel?.value || "gpt-4o-mini";
+        const tempVal = parseFloat(selTemp?.value || "0.0");
+        const notes = (pubReleaseNotes?.value || "").trim() || `Updated policy limits ($${limitVal}, <${ageVal}d) & system instructions`;
 
         await api.publishAgentVersion({
           version: "v1.5",
@@ -1124,18 +1204,20 @@ function setupAgentStudio() {
           published_by: "Deepak Singla (Head of Support)",
           max_refund_limit: limitVal,
           max_refund_age_days: ageVal,
-          model: selModel?.value || "gpt-4o-mini",
-          temperature: parseFloat(selTemp?.value || "0.0"),
+          model: modelVal,
+          temperature: tempVal,
         });
-        showDeployToast("Published v1.5 with updated safety parameters");
+
+        closePublishModal();
+        showDeployToast("Published v1.5 with updated safety parameters & executive briefing dispatched!");
         await loadStudioData();
         const statusBadge = document.getElementById("topbar-agent-status");
         if (statusBadge) statusBadge.textContent = "Active: v1.5 Live";
       } catch (err) {
         showDeployToast("Publish failed: " + err.message);
       } finally {
-        btnPublish.disabled = false;
-        btnPublish.textContent = origText;
+        pubBtnConfirm.disabled = false;
+        pubBtnConfirm.textContent = origText;
       }
     });
   }
