@@ -637,7 +637,24 @@ def get_session(session_id: str):
     """Retrieve current state of a session."""
     session_data = ACTIVE_SESSIONS.get(session_id)
     if not session_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
+        store = FixtureStore()
+        session = SessionState(session_id=session_id)
+        client = get_llm_client()
+        runner = AgentRunner(
+            session=session,
+            store=store,
+            llm_client=client,
+            model_name=ACTIVE_DRAFT.get("model", "gpt-4o-mini"),
+            temperature=float(ACTIVE_DRAFT.get("temperature", 0.0)),
+            system_prompt=ACTIVE_DRAFT.get("instructions", DEFAULT_INSTRUCTIONS),
+        )
+        session_data = {
+            "runner": runner,
+            "store": store,
+            "scenario_id": "live_preview",
+            "created_at": "2026-10-12T16:00:00Z",
+        }
+        ACTIVE_SESSIONS[session_id] = session_data
 
     runner: AgentRunner = session_data["runner"]
     store: FixtureStore = session_data["store"]
@@ -670,7 +687,25 @@ def process_chat(session_id: str, req: ChatRequest):
     """Process a conversation turn via the trusted AgentRunner."""
     session_data = ACTIVE_SESSIONS.get(session_id)
     if not session_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
+        # Serverless cold-start or auto-recovered session
+        store = FixtureStore()
+        session = SessionState(session_id=session_id)
+        client = get_llm_client()
+        runner = AgentRunner(
+            session=session,
+            store=store,
+            llm_client=client,
+            model_name=ACTIVE_DRAFT.get("model", "gpt-4o-mini"),
+            temperature=float(ACTIVE_DRAFT.get("temperature", 0.0)),
+            system_prompt=ACTIVE_DRAFT.get("instructions", DEFAULT_INSTRUCTIONS),
+        )
+        session_data = {
+            "runner": runner,
+            "store": store,
+            "scenario_id": "live_preview",
+            "created_at": "2026-10-12T16:00:00Z",
+        }
+        ACTIVE_SESSIONS[session_id] = session_data
 
     runner: AgentRunner = session_data["runner"]
     store: FixtureStore = session_data["store"]
@@ -867,12 +902,9 @@ def process_chat(session_id: str, req: ChatRequest):
 def reset_session(session_id: str):
     """Reset the session and fixtures back to clean state."""
     session_data = ACTIVE_SESSIONS.get(session_id)
-    if not session_data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
-
-    scenario_id = session_data.get("scenario_id")
+    scenario_id = session_data.get("scenario_id") if session_data else "live_preview"
     store = FixtureStore()
-    session = SessionState()
+    session = SessionState(session_id=session_id)
     client = get_llm_client()
 
     runner = AgentRunner(
