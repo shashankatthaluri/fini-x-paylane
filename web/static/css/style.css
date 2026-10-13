@@ -1918,8 +1918,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 8px;
+  box-sizing: border-box;
   transition: all var(--transition-fast);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .slot-time-btn:hover {
@@ -1936,11 +1940,20 @@ body {
 
 .slot-time-btn.now-slot {
   grid-column: span 3;
+  width: 100%;
   background: rgba(16, 185, 129, 0.1);
   border-color: rgba(16, 185, 129, 0.4);
   color: var(--emerald-text);
   font-weight: 600;
+  font-size: 12px;
+  padding: 0 12px;
   margin-bottom: 2px;
+  gap: 6px;
+  letter-spacing: -0.01em;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .slot-time-btn.now-slot:hover {

@@ -2208,7 +2208,7 @@ function attachInteractiveCards(containerCard, responseData, onActionSelect) {
 
       <!-- Time Slots Grid -->
       <div class="slot-times-grid">
-        <button type="button" class="slot-time-btn now-slot" data-slot="Connect Now (Urgent Priority)">⚡ Connect Now (Immediate Specialist Transfer)</button>
+        <button type="button" class="slot-time-btn now-slot" data-slot="Connect Now (Urgent Priority)">⚡ Connect with Specialist Now</button>
         ${times.map(t => `
           <button type="button" class="slot-time-btn" data-time="${t}">${t}</button>
         `).join("")}
@@ -2363,7 +2363,7 @@ function createSlotPickerElement(promptMessage, onSlotChosen) {
 
     <!-- Time Slots Grid -->
     <div class="slot-times-grid">
-      <button type="button" class="slot-time-btn now-slot" data-slot="Connect Now (Urgent Priority)">⚡ Connect Now (Immediate Specialist Transfer)</button>
+      <button type="button" class="slot-time-btn now-slot" data-slot="Connect Now (Urgent Priority)">⚡ Connect with Specialist Now</button>
       ${times.map(t => `
         <button type="button" class="slot-time-btn" data-time="${t}">${t}</button>
       `).join("")}
