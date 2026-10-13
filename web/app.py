@@ -1253,6 +1253,44 @@ def update_ticket_action(ticket_id: str, req: TicketActionRequest):
                         "content": closing_msg
                     })
 
+    elif req.action == "misuse":
+        from datetime import datetime, timezone
+        now_time = datetime.now(timezone.utc).strftime("%H:%M")
+        specialist_name = ticket.get("assigned_to") or "Deepak Singla (Human Specialist)"
+        ticket["status"] = "closed"
+        ticket["priority"] = "urgent"
+        ticket["category"] = f"Policy Misuse: {ticket.get('category', 'Dispute')}"
+        ticket["resolved_at"] = now_time
+        ticket["takeover_active"] = False
+        ticket["awaiting_senior_contact"] = False
+        misuse_note = f"Case marked as Policy Misuse / Abuse by {specialist_name}. Account flagged for risk review under Paylane security terms."
+        ticket["resolution_note"] = misuse_note
+        ticket["notes"].append(f"Security Alert: {misuse_note}")
+
+        misuse_msg = (
+            "This request has been reviewed and closed due to policy boundaries or detected activity outside of Paylane's terms of service. "
+            "If you believe this is in error, our risk and compliance office will review your documentation upon formal submission."
+        )
+        ticket["messages"].append({
+            "role": "agent",
+            "text": misuse_msg,
+            "time": now_time,
+            "author": "Paylane Risk & Security Desk",
+        })
+
+        for sess_id, s_data in ACTIVE_SESSIONS.items():
+            r = s_data.get("runner")
+            if r and r.session:
+                sess_cust_id = r.session.customer_id
+                sess_email = r.session.customer_email
+                if (sess_email and sess_email == ticket.get("customer_email")) or \
+                   (sess_cust_id and sess_cust_id == ticket.get("customer_id")) or \
+                   (s_data.get("scenario_id") in ("customer_widget", "live_preview")):
+                    r.session.messages.append({
+                        "role": "assistant",
+                        "content": misuse_msg
+                    })
+
     elif req.action == "reply_customer" and req.note:
         from datetime import datetime, timezone
         now_time = datetime.now(timezone.utc).strftime("%H:%M")

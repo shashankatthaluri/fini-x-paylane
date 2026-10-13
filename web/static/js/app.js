@@ -1539,19 +1539,18 @@ function renderTicketDetail(ticket) {
           </div>
         </div>
 
-        <!-- Two Buttons Only: [Escalate to Senior] and [Resolve Case] -->
-        <div style="display:flex;align-items:center;gap:10px;">
-          ${!isResolved ? `
-            <button id="btn-escalate-senior" class="apple-takeover-btn" style="background:var(--bg-app);border-color:var(--border-medium);color:var(--text-primary);">
-              <svg class="svg-icon" style="width:12px;height:12px;color:#f59e0b;" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg>
-              <span>Escalate to Senior</span>
-            </button>
-          ` : ''}
-
-          <button id="btn-resolve-ticket" class="btn-resolve-case ${isResolved ? 'is-resolved' : ''}">
-            <svg class="svg-icon" style="width:13px;height:13px;${isResolved ? 'color:var(--text-muted);' : 'color:#000000;'}" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>${isResolved ? 'Case Resolved' : 'Case Resolved'}</span>
-          </button>
+        <!-- Single Dynamic Dropdown: Case Status -->
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label for="select-case-status" style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">Case Status:</label>
+          <div style="position:relative;display:inline-flex;align-items:center;">
+            <select id="select-case-status" style="appearance:none;-webkit-appearance:none;background:${isResolved ? 'rgba(16,185,129,0.12)' : ticket.status === 'closed' ? 'rgba(239,68,68,0.12)' : 'var(--bg-card-hover)'};border:1px solid ${isResolved ? 'rgba(16,185,129,0.3)' : ticket.status === 'closed' ? 'rgba(239,68,68,0.3)' : 'var(--border-medium)'};color:${isResolved ? 'var(--emerald-text)' : ticket.status === 'closed' ? '#ef4444' : 'var(--text-primary)'};font-weight:600;font-size:12px;padding:6px 28px 6px 12px;border-radius:7px;outline:none;cursor:pointer;transition:all var(--transition-fast);">
+              <option value="" disabled ${!isResolved && ticket.status !== 'closed' && !ticket.awaiting_senior_contact ? 'selected' : ''}>Change Status...</option>
+              <option value="resolved" ${isResolved ? 'selected' : ''}>✓ Resolved</option>
+              <option value="escalate_senior" ${ticket.awaiting_senior_contact ? 'selected' : ''}>▲ Escalated</option>
+              <option value="misuse" ${ticket.status === 'closed' ? 'selected' : ''}>⚠ Misuse</option>
+            </select>
+            <svg class="svg-icon" style="position:absolute;right:9px;width:11px;height:11px;pointer-events:none;color:var(--text-muted);" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
         </div>
       </div>
 
@@ -1745,28 +1744,30 @@ function renderTicketDetail(ticket) {
     });
   }
 
-  // Direct In-Chat Escalate to Senior (No modal popup - AI agent asks for contact in conversation)
-  document.getElementById("btn-escalate-senior")?.addEventListener("click", async () => {
-    await api.updateTicketAction(ticket.id, { action: "escalate_senior" });
-    showDeployToast("Case escalated to Senior Queue. Contact request message dropped into customer chat.");
-    loadInboxData();
-  });
+  // Single Dropdown: Case Status Handler (Resolved, Escalated, Misuse)
+  const statusSelect = document.getElementById("select-case-status");
+  if (statusSelect) {
+    statusSelect.addEventListener("change", async (e) => {
+      const selectedAction = e.target.value;
+      if (!selectedAction) return;
 
-  // Direct Silent Case Resolved (Automated resolution note logged cleanly without intimidating prompts)
-  document.getElementById("btn-resolve-ticket")?.addEventListener("click", async () => {
-    if (isResolved) return;
-    await api.updateTicketAction(ticket.id, { action: "resolve" });
-    showDeployToast(`Case #${ticket.id} marked as resolved. Summary automatically logged to internal notes.`);
-    loadInboxData();
-  });
-
-  // Direct Silent Case Resolved (Automated resolution note logged cleanly without intimidating prompts)
-  document.getElementById("btn-resolve-ticket")?.addEventListener("click", async () => {
-    if (isResolved) return;
-    await api.updateTicketAction(ticket.id, { action: "resolve" });
-    showDeployToast(`Case #${ticket.id} marked as resolved. Summary automatically logged to internal notes.`);
-    loadInboxData();
-  });
+      try {
+        if (selectedAction === "resolved") {
+          await api.updateTicketAction(ticket.id, { action: "resolve" });
+          showDeployToast(`Case #${ticket.id} marked as Resolved. Automated closing logged to internal notes.`);
+        } else if (selectedAction === "escalate_senior") {
+          await api.updateTicketAction(ticket.id, { action: "escalate_senior" });
+          showDeployToast("Case escalated to Senior Queue. Contact request message dropped into customer chat.");
+        } else if (selectedAction === "misuse") {
+          await api.updateTicketAction(ticket.id, { action: "misuse" });
+          showDeployToast(`Case #${ticket.id} flagged as Misuse & closed under Paylane security policies.`);
+        }
+        await loadInboxData();
+      } catch (err) {
+        showDeployToast("Status update failed: " + err.message);
+      }
+    });
+  }
 }
 
 async function renderAuditNotesView() {

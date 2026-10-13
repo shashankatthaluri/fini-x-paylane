@@ -735,15 +735,17 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
                   <span>Card: •••• 1122</span>
                 </div>
               </div>
-              <div style="display:flex;align-items:center;gap:10px;">
-                <button id="btn-escalate-senior" class="apple-takeover-btn" style="background:var(--bg-app);border-color:var(--border-medium);color:var(--text-primary);">
-                  <svg class="svg-icon" style="width:12px;height:12px;color:#f59e0b;" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg>
-                  <span>Escalate to Senior</span>
-                </button>
-                <button id="btn-resolve-ticket" class="btn-resolve-case">
-                  <svg class="svg-icon" style="width:13px;height:13px;color:#000000;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>Case Resolved</span>
-                </button>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <label for="select-case-status" style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">Case Status:</label>
+                <div style="position:relative;display:inline-flex;align-items:center;">
+                  <select id="select-case-status" style="appearance:none;-webkit-appearance:none;background:var(--bg-card-hover);border:1px solid var(--border-medium);color:var(--text-primary);font-weight:600;font-size:12px;padding:6px 28px 6px 12px;border-radius:7px;outline:none;cursor:pointer;transition:all var(--transition-fast);">
+                    <option value="" disabled selected>Update Status...</option>
+                    <option value="resolved">✓ Resolved</option>
+                    <option value="escalate_senior">▲ Escalated</option>
+                    <option value="misuse">⚠ Misuse</option>
+                  </select>
+                  <svg class="svg-icon" style="position:absolute;right:9px;width:11px;height:11px;pointer-events:none;color:var(--text-muted);" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
               </div>
             </div>
 
