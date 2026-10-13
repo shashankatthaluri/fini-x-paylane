@@ -31,12 +31,19 @@ def extract_potential_verification_credentials(user_message: str) -> Dict[str, O
     email_match = re.search(email_pattern, user_message)
     email = email_match.group(0).rstrip(".") if email_match else None
 
-    # Find 4-digit card numbers (e.g. "ending in 4821", "card 4821", "4821")
-    card_pattern = r'(?:\b|ending\s+in\s+|card\s+|digits?\s+)(\d{4})\b'
-    card_match = re.search(card_pattern, user_message, re.IGNORECASE)
-    card_last4 = card_match.group(1) if card_match else None
+    # Find 4-digit card numbers, prioritizing explicit mentions like "ending in 4821", "card 4821", "last 4 is 4821"
+    explicit_pattern = r'(?:card|ending\s+in|last\s+4|digits?)[\s:]*([0-9]{4})\b'
+    explicit_match = re.search(explicit_pattern, user_message, re.IGNORECASE)
+    if explicit_match:
+        card_last4 = explicit_match.group(1)
+    else:
+        # Fallback to any 4-digit token that is not a common year (e.g. 1990-2099)
+        matches = re.findall(r'\b([0-9]{4})\b', user_message)
+        non_years = [m for m in matches if not (m.startswith("19") or m.startswith("20"))]
+        card_last4 = non_years[0] if non_years else (matches[0] if matches else None)
 
     return {"email": email, "card_last4": card_last4}
+
 
 
 class AgentRunner:
