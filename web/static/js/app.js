@@ -225,7 +225,7 @@ async function initSupabase() {
       // Listen to auth state changes (e.g. Google OAuth redirect callback, sign in, sign out)
       supabaseClient.auth.onAuthStateChange((event, session) => {
         const overlay = document.getElementById("auth-overlay");
-        if (event === "SIGNED_OUT" || !session) {
+        if (event === "SIGNED_OUT") {
           localStorage.removeItem("paylane_user");
           if (overlay) {
             overlay.classList.add("active");
@@ -779,12 +779,20 @@ function switchView(viewName, updateHash = true) {
       renderEvaluationScenariosList();
       loadEvaluationDetail(state.selectedScenarioId || state.scenarios[0].id);
     }
+  } else if (viewName === "preview") {
+    if (!state.previewSessionId) initPreviewSession();
+  } else if (viewName === "customer-widget") {
+    if (!state.widgetSessionId) initWidgetSession();
   }
 }
 
-// Expose switchView to window for reliable onclick bindings
+// Expose key action handlers to window for reliable bindings
 window.switchView = switchView;
 window._switchViewApp = switchView;
+window.handlePreviewSend = handlePreviewSend;
+window.handleWidgetSend = handleWidgetSend;
+window.initPreviewSession = initPreviewSession;
+window.initWidgetSession = initWidgetSession;
 
 // Setup background live sync every 4 seconds for analytics and overview
 setInterval(() => {
@@ -957,6 +965,9 @@ async function loadOverviewData() {
     } catch (inboxErr) {
       console.warn("Could not load inbox preview for overview:", inboxErr);
     }
+  } catch (err) {
+    console.error("Error loading overview data:", err);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2005,16 +2016,28 @@ function setupLivePreview() {
 async function handlePreviewSend() {
   const input = document.getElementById("preview-input");
   const msgs = document.getElementById("preview-messages");
-  const typing = document.getElementById("preview-typing");
   const sendBtn = document.getElementById("preview-send-btn");
 
-  const text = input.value.trim();
-  if (!text || state.isSendingPreview || !state.previewSessionId) return;
+  const text = input ? input.value.trim() : "";
+  if (!text || state.isSendingPreview) return;
+
+  if (!state.previewSessionId) {
+    try {
+      await initPreviewSession();
+    } catch (_) {}
+    if (!state.previewSessionId) {
+      state.previewSessionId = "live_preview_" + Date.now();
+    }
+  }
 
   state.isSendingPreview = true;
-  input.value = "";
-  input.style.height = "auto";
-  sendBtn.disabled = true;
+  if (input) {
+    input.value = "";
+    input.style.height = "auto";
+  }
+  if (sendBtn) sendBtn.disabled = true;
+
+  if (!msgs) return;
 
   // Append user message
   const userCard = document.createElement("div");
@@ -2074,8 +2097,8 @@ async function handlePreviewSend() {
       });
 
       state.isSendingPreview = false;
-      sendBtn.disabled = false;
-      input.focus();
+      if (sendBtn) sendBtn.disabled = false;
+      if (input) input.focus();
     });
 
     // Update inspector
@@ -2086,10 +2109,14 @@ async function handlePreviewSend() {
     loadAnalyticsData();
     loadInboxData();
   } catch (err) {
-    typing.classList.remove("active");
+    console.error("Preview send error:", err);
+    const turnTextEl = agentCard.querySelector(".turn-text");
+    if (turnTextEl) {
+      turnTextEl.innerHTML = `<span style="color:#ef4444;">Unable to connect to Paylane AI support engine. Please verify the backend service is running.</span>`;
+    }
     state.isSendingPreview = false;
-    sendBtn.disabled = false;
-    input.focus();
+    if (sendBtn) sendBtn.disabled = false;
+    if (input) input.focus();
   }
 }
 
@@ -2853,18 +2880,33 @@ async function handleWidgetSend() {
   const msgs = document.getElementById("widget-messages");
   const sendBtn = document.getElementById("widget-send-btn");
 
-  const text = input.value.trim();
-  if (!text || state.isSendingWidget || !state.widgetSessionId) return;
+  const text = input ? input.value.trim() : "";
+  if (!text || state.isSendingWidget) return;
+
+  if (!state.widgetSessionId) {
+    try {
+      await initWidgetSession();
+    } catch (_) {}
+    if (!state.widgetSessionId) {
+      state.widgetSessionId = "customer_widget_" + Date.now();
+    }
+  }
 
   state.isSendingWidget = true;
-  input.value = "";
-  sendBtn.disabled = true;
+  if (input) {
+    input.value = "";
+    input.style.height = "auto";
+  }
+  if (sendBtn) sendBtn.disabled = true;
+
+  if (!msgs) return;
 
   // Append user message with theme variables
   const userCard = document.createElement("div");
   userCard.style.cssText = "align-self:flex-end;background:var(--bg-bubble-user);color:var(--text-bubble-user);padding:10px 14px;border-radius:14px;font-size:13px;max-width:85%;border:1px solid var(--border-subtle);";
   userCard.textContent = text;
   msgs.appendChild(userCard);
+
   // Append agent message card immediately containing three bouncing dots
   const agentCard = document.createElement("div");
   agentCard.style.cssText = "align-self:flex-start;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary);padding:12px 16px;border-radius:14px;font-size:13px;max-width:85%;line-height:1.45;";
@@ -2912,8 +2954,8 @@ async function handleWidgetSend() {
       });
 
       state.isSendingWidget = false;
-      sendBtn.disabled = false;
-      input.focus();
+      if (sendBtn) sendBtn.disabled = false;
+      if (input) input.focus();
     });
 
     // Refresh live operational KPIs and telemetry in background
@@ -2922,10 +2964,12 @@ async function handleWidgetSend() {
     loadInboxData();
   } catch (err) {
     console.error("Widget error:", err);
-    if (typing) typing.classList.remove("active");
+    const turnTextEl = agentCard.querySelector(".turn-text");
+    if (turnTextEl) {
+      turnTextEl.innerHTML = `<span style="color:#ef4444;">Unable to connect to Paylane support servers. Please check your connection and try again.</span>`;
+    }
     state.isSendingWidget = false;
-    sendBtn.disabled = false;
-    input.focus();
+    if (sendBtn) sendBtn.disabled = false;
   }
 }
 
