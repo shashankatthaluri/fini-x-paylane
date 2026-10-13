@@ -249,7 +249,7 @@ HUMAN_TICKETS: List[Dict[str, Any]] = [
         "assigned_to": "Sarah Jenkins (Senior Fraud Specialist)",
         "messages": [
             {"role": "customer", "text": "Someone stole my card and charged $850! This is fraud!", "time": "14:44"},
-            {"role": "agent", "text": "I have escalated this unauthorized charge to our fraud team under urgent priority (Ticket tick_1002).", "time": "14:45"}
+            {"role": "agent", "text": "I have escalated this unauthorized charge to our fraud detection team under urgent priority (Ticket tick_1002).", "time": "14:45"}
         ],
         "conversation_summary": {
             "overview": "Marcus Vance reported an unauthorized fraudulent charge of $850.00.",
