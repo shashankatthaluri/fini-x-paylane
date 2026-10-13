@@ -247,6 +247,12 @@ async function initSupabase() {
             overlay.classList.remove("active");
             overlay.style.display = "none";
           }
+          // Clean OAuth access token fragment from address bar for clean display
+          if (window.location.hash && (window.location.hash.includes("access_token") || window.location.hash.includes("error"))) {
+            try {
+              history.replaceState(null, "", window.location.pathname + "#overview");
+            } catch (_) {}
+          }
           // Update sidebar labels
           const nameEl = document.querySelector(".org-name");
           const roleEl = document.querySelector(".org-role");
@@ -254,6 +260,7 @@ async function initSupabase() {
           if (nameEl) nameEl.textContent = userObj.name;
           if (roleEl) roleEl.textContent = userObj.email;
           if (avatarEl) avatarEl.textContent = (userObj.name || "D").charAt(0).toUpperCase();
+          showDeployToast(`Signed in as ${userObj.name}`);
         }
       });
     } catch (e) {
