@@ -2260,6 +2260,38 @@ function setupLivePreview() {
       window.selectSuggestedPrompt(prompt);
     });
   });
+
+  // Export SOC-2 Compliance Audit Pack
+  const btnExportSoc2 = document.getElementById("btn-export-soc2");
+  if (btnExportSoc2) {
+    btnExportSoc2.addEventListener("click", async () => {
+      const sessionId = state.previewSessionId;
+      if (!sessionId) {
+        showDeployToast("No active session to export. Send a message first.");
+        return;
+      }
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/soc2-audit-pack`);
+        if (!res.ok) {
+          showDeployToast("Failed to generate SOC-2 audit pack.");
+          return;
+        }
+        const data = await res.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `paylane-soc2-audit-${sessionId}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showDeployToast("✓ Downloaded cryptographically sealed SOC-2 Audit Pack.");
+      } catch (err) {
+        showDeployToast("Export failed: " + err.message);
+      }
+    });
+  }
 }
 
 async function handlePreviewSend() {

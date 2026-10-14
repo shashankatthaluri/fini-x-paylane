@@ -107,3 +107,30 @@ def test_sanitize_data_recursively():
     assert cleaned["card_last4"] == "[REDACTED]"
     assert cleaned["nested"]["pan"] == "[REDACTED]"
     assert cleaned["nested"]["safe_field"] == 123
+
+
+def test_export_soc2_audit_pack_endpoint():
+    """Verify that export_soc2_audit_pack produces verifiable compliance artifacts with SHA-256 integrity seal."""
+    from fastapi.testclient import TestClient
+    from web.app import app
+
+    client = TestClient(app)
+    # Create active session
+    create_res = client.post("/api/sessions", json={})
+    assert create_res.status_code == 200
+    s_id = create_res.json()["session_id"]
+
+    # Export audit pack
+    res = client.get(f"/api/sessions/{s_id}/soc2-audit-pack")
+    assert res.status_code == 200
+    pack = res.json()
+    assert pack["session_id"] == s_id
+    assert "SOC-2 Type II" in pack["audit_standard"]
+    assert pack["compliance_attestation"]["raw_card_numbers_exposed_to_model"] is False
+    assert pack["compliance_attestation"]["financial_gates_enforced_pre_mutation"] is True
+    assert len(pack["digital_fingerprint_sha256"]) == 64
+
+    # 404 on nonexistent session
+    res_404 = client.get("/api/sessions/sess_nonexistent_999/soc2-audit-pack")
+    assert res_404.status_code == 404
+

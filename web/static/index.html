@@ -734,7 +734,13 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
           </div>
 
           <div class="ledger-card" style="flex:1;">
-            <div class="ledger-card-title">Live Executed Operations Trace</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div class="ledger-card-title">Live Executed Operations Trace</div>
+              <button id="btn-export-soc2" class="btn-link" style="font-size:10.5px;padding:2px 7px;border:1px solid var(--border-medium);border-radius:4px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;" title="Export cryptographically verified SOC-2 Type II audit pack">
+                <svg class="svg-icon" style="width:11px;height:11px;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>SOC-2 Export</span>
+              </button>
+            </div>
             <div id="prev-trace-list" style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">
               <div style="font-size:11px;color:var(--text-muted);">Awaiting tool calls...</div>
             </div>
