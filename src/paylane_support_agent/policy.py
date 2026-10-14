@@ -120,7 +120,18 @@ def check_refund_eligibility(
             "transaction": None,
         }
 
-    # Rule 3: Duplicate Refund Invariant
+    # Rule 3: Frozen Card Invariant (Deep's Clarification: Frozen cards escalate all refunds)
+    cust = s.customers.get(session.customer_id, {})
+    if cust.get("status") == "frozen":
+        return {
+            "eligible": False,
+            "reason": "card_frozen",
+            "message": "Customer card is currently frozen. All refund requests on frozen cards require human specialist escalation.",
+            "requires_escalation": True,
+            "transaction": txn,
+        }
+
+    # Rule 4: Duplicate Refund Invariant
     if txn.get("status") == "refunded":
         return {
             "eligible": False,
@@ -130,7 +141,7 @@ def check_refund_eligibility(
             "transaction": txn,
         }
 
-    # Rule 4: Transaction Status (Pending Interim Rule)
+    # Rule 5: Transaction Status (Pending Interim Rule)
     if txn.get("status") == "pending":
         return {
             "eligible": False,

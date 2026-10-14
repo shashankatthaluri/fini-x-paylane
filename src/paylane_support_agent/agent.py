@@ -70,20 +70,19 @@ Refund Policy Rules & Immediate Escalation:
      - NEVER promise or ask if they want escalation—execute `escalate_to_human` directly.
 
 Card Security, Freeze Context & Next-Step Guidance:
-- EXPLAINING FROZEN CARDS: When a verified customer asks why their card is frozen, explain the specific reason from their account record warmly (e.g. "Your card was placed on a security freeze after unusual transaction activity was flagged", or "It was frozen per your request when you reported it lost").
+- EXPLAINING FROZEN CARDS: When a verified customer asks about their frozen card, share only their confirmed 'frozen' status. State clearly that the specific internal reason is unavailable in the automated system, and escalate immediately to a human specialist using `escalate_to_human(customer_id, summary)`.
+- FROZEN CARD REFUNDS: Any refund request on an account with a frozen card MUST BE ESCALATED to a human specialist, even if the transaction is under $75 and under 30 days old.
 - EXPLAINING THE TWO OPTIONS:
-  1. If they found their card or believe it was frozen by mistake: Explain that lifting a security freeze requires human authorization to protect their funds, and call `escalate_to_human(customer_id, summary)` immediately to connect them with a specialist.
+  1. If they found their card or believe it was frozen by mistake: Explain that lifting a security freeze requires human authorization to protect their funds, and call `escalate_to_human(customer_id, summary)` immediately.
   2. If their card was lost or stolen permanently: Offer to order an immediate replacement card using `request_card_replacement(customer_id)`.
 - EMERGENCY CARD FREEZE: If a verified customer reports their card lost or asks to freeze it, call `freeze_card(customer_id)` immediately and confirm it has been safely frozen.
 - UNFREEZE LIMITATION: You cannot unfreeze cards directly. Never promise or imply you can unlock it yourself.
 
-
-
 Mandatory Escalation Triggers:
-- Refunds over $75, transactions 30 days old or older, or pending charges (call get_transaction first, then escalate_to_human immediately).
-- Requests to unfreeze a frozen card: call `get_customer(email)` to verify status, explain it is frozen, and call `escalate_to_human` immediately.
-- Fraud involving more than $500, legal action threats, or account closure requests: call `escalate_to_human` immediately.
-- Customer ID requirement: `escalate_to_human` requires a valid customer ID. If customer ID is unknown, politely request their account email before escalating.
+- Refunds over $75, transactions 30 days old or older, pending charges, or any refund on a frozen card (call escalate_to_human immediately).
+- Requests to unfreeze a frozen card: call `get_customer(email)` to verify status, confirm it is frozen, and call `escalate_to_human` immediately.
+- Legal action threats, account closure requests, suspected fraud involving more than $500, or an explicit request for a person ("talk to human"): call `escalate_to_human` immediately.
+- PRE-VERIFICATION ESCALATIONS & GUEST TICKETS: Legal threats, account closure requests, suspected fraud, and explicit requests to speak with a human CAN and MUST be handed off BEFORE verification. Do NOT force the customer to provide an email or card digits first; call `escalate_to_human(customer_id=null, summary=...)` to create a guest ticket immediately. Never invent a fake customer ID.
 
 Truthfulness Invariant & Communication Boundaries:
 - NEVER claim a refund was issued, a card was frozen, or a ticket was created unless the tool output explicitly confirms success with a refund_id, status: 'frozen', or ticket_id.
@@ -168,20 +167,20 @@ PUBLIC_TOOLS_SCHEMA: List[Dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "escalate_to_human",
-            "description": "Escalate a request or dispute to a human support specialist.",
+            "description": "Escalate a request or dispute to a human support specialist. Can be called with customer_id: null for pre-verification guest tickets (legal threats, account closure, fraud, or explicit human requests).",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "customer_id": {
-                        "type": "string",
-                        "description": "The customer ID for the escalation ticket.",
+                        "type": ["string", "null"],
+                        "description": "The customer ID for the escalation ticket, or null for an unverified visitor guest ticket.",
                     },
                     "summary": {
                         "type": "string",
                         "description": "A concise summary of the issue and reason for escalation.",
                     },
                 },
-                "required": ["customer_id", "summary"],
+                "required": ["summary"],
                 "additionalProperties": False,
             },
         },

@@ -161,3 +161,24 @@ def test_duplicate_refund_blocked_before_tool_execution(store, verified_session)
     assert res["ok"] is False
     assert res["blocked_by_policy"] is True
     assert res["reason"] == "already_refunded"
+
+
+def test_frozen_card_refund_requires_escalation(store):
+    """Deep's clarification: For a frozen card, escalate all refunds even if otherwise eligible."""
+    # Alex Rivera has card status: 'frozen' and txn_201_alex ($30.00, settled, under 30 days)
+    alex_session = SessionState()
+    alex_session.verified = True
+    alex_session.customer_id = "cust_alex_102"
+
+    res = trusted_execute_refund(
+        session=alex_session,
+        txn_id="txn_201_alex",
+        amount=30.00,
+        store=store,
+    )
+    assert res["ok"] is False
+    assert res["blocked_by_policy"] is True
+    assert res["reason"] == "card_frozen"
+    assert res["requires_escalation"] is True
+    assert store.transactions["txn_201_alex"]["status"] == "settled"
+
