@@ -1550,6 +1550,80 @@ def get_inbox_audit_notes():
     return {"total_notes": len(all_notes), "notes": all_notes}
 
 
+@app.post("/api/inbox/tickets/{ticket_id}/generate-kb-article")
+def generate_kb_article_from_ticket(ticket_id: str):
+    """Fini-style continuous learning: auto-draft a grounded Knowledge Base article from a human escalation."""
+    import uuid
+    ticket = next((t for t in HUMAN_TICKETS if t["id"] == ticket_id), None)
+    if not ticket:
+        raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found.")
+
+    category = ticket.get("category", "General Policy")
+    summary = ticket.get("summary", "")
+    conv_sum = ticket.get("conversation_summary", {})
+    recommended = conv_sum.get("recommended_action") or "Review case facts and provide grounded resolution."
+    policy_trigger = conv_sum.get("policy_trigger") or ticket.get("summary", "Policy boundary handoff.")
+
+    # Determine clean, grounded title
+    if "Refund" in category:
+        title = f"Resolution Guide: Policy Bounds & Discretionary Reviews ({ticket['id']})"
+        doc_cat = "Refunds"
+    elif "Fraud" in category:
+        title = f"Security Protocol: High-Exposure Fraud Escalation & Card Reissuance ({ticket['id']})"
+        doc_cat = "Security"
+    elif "Frozen" in category or "Hold" in category:
+        title = f"Card Protocol: Handling Temporary Security Holds & Verification Gates ({ticket['id']})"
+        doc_cat = "Cards"
+    elif "Legal" in category:
+        title = f"Compliance Notice: Mandatory Protocol for Legal Disclosures ({ticket['id']})"
+        doc_cat = "Compliance"
+    else:
+        title = f"Operational FAQ: Handling Escalated Inquiries ({category}) ({ticket['id']})"
+        doc_cat = "Operations"
+
+    doc_id = f"doc_auto_{uuid.uuid4().hex[:8]}"
+    content = f"""### Summary & Operational Context
+This grounded procedure was synthesized from the resolution of support escalation **{ticket['id']}** ({category}).
+
+### Boundary & Policy Invariants
+- **Trigger**: {policy_trigger}
+- **Mandatory Verification**: Customer identity must be confirmed in trusted code (matching email + card last 4 digits) before disclosing account or transaction details.
+- **Line of Control**: AI tier-1 agents cannot unilaterally override runtime parameters or waive security flags. Handoff to human specialists is strictly required.
+
+### Specialist Resolution Protocol
+1. {recommended}
+2. Confirm disposition with customer via verified communication channel without fabricated timelines or delivery guarantees.
+3. Record action in audit ledger.
+
+### Standard Customer Guidance
+"For transactions requiring special handling or security reviews, our specialist team conducts a manual review. You will receive an official update once our investigation is complete."
+"""
+
+    new_doc = {
+        "id": doc_id,
+        "title": title,
+        "category": doc_cat,
+        "status": "verified",
+        "updated_at": "2026-10-12",
+        "summary": f"Distilled from specialist escalation {ticket['id']}: {category}. Grounded guidelines for operational consistency.",
+        "content": content,
+        "citations_count": 1,
+        "source_ticket_id": ticket["id"],
+    }
+
+    # Add to Knowledge Base
+    KNOWLEDGE_DOCUMENTS.insert(0, new_doc)
+
+    # Log internal case note on the ticket
+    ticket.setdefault("notes", []).append(f"✨ Auto-drafted Knowledge Base article '{title}' (ID: {doc_id}) from case resolution.")
+
+    return {
+        "status": "success",
+        "document": new_doc,
+        "message": f"Successfully drafted and published Knowledge Base article '{title}'."
+    }
+
+
 # 3. Knowledge Base Endpoints
 @app.get("/api/knowledge/documents")
 def get_knowledge_documents():

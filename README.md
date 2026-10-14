@@ -95,11 +95,11 @@ When testing the live agent in the **Interactive Sandbox (Web UI)** or via CLI, 
 ## 6. Running Tests
 
 ### 6.1 Automated Unit & Integration Tests (Deterministic / Offline)
-The repository includes 53 automated pytest tests exercising the policy engine, session isolation, sanitization, public tool contracts, core-banking idempotency replay protection, interactive policy simulation, and two-sided evaluator regressions:
+The repository includes 54 automated pytest tests exercising the policy engine, session isolation, sanitization, public tool contracts, core-banking idempotency replay protection, interactive policy simulation, knowledge auto-drafting from human escalations, and two-sided evaluator regressions:
 ```bash
 python -m pytest -v
 ```
-*Expected Result:* 53 passed in ~0.4 seconds.
+*Expected Result:* 54 passed in ~0.4 seconds.
 
 ### 5.2 Two-Sided Evaluation Harness Tests
 The evaluation harness includes two-sided invariant tests proving that:

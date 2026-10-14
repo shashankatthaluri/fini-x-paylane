@@ -263,3 +263,24 @@ def test_simulate_policy_endpoint():
     assert res_unverified.json()["decision"] == "BLOCKED_BY_GUARDRAIL"
 
 
+def test_generate_kb_article_from_ticket():
+    """Verify that resolving an escalation ticket allows 1-click drafting of grounded KB article."""
+    from fastapi.testclient import TestClient
+    from web.app import app
+
+    client = TestClient(app)
+    res = client.post("/api/inbox/tickets/tick_1001/generate-kb-article")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "document" in data
+    assert data["document"]["source_ticket_id"] == "tick_1001"
+    assert data["document"]["status"] == "verified"
+    assert len(data["document"]["content"]) > 100
+
+    # Ensure 404 on invalid ticket
+    res_404 = client.post("/api/inbox/tickets/tick_nonexistent/generate-kb-article")
+    assert res_404.status_code == 404
+
+
+

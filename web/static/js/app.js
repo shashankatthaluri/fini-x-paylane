@@ -1803,17 +1803,23 @@ function renderTicketDetail(ticket) {
           </div>
         </div>
 
-        <!-- Single Dynamic Dropdown: Case Status -->
-        <div style="display:flex;align-items:center;gap:8px;">
-          <label for="select-case-status" style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">Case Status:</label>
-          <div style="position:relative;display:inline-flex;align-items:center;">
-            <select id="select-case-status" style="appearance:none;-webkit-appearance:none;background:${isResolved ? 'rgba(16,185,129,0.12)' : ticket.status === 'closed' ? 'rgba(239,68,68,0.12)' : 'var(--bg-card-hover)'};border:1px solid ${isResolved ? 'rgba(16,185,129,0.3)' : ticket.status === 'closed' ? 'rgba(239,68,68,0.3)' : 'var(--border-medium)'};color:${isResolved ? 'var(--emerald-text)' : ticket.status === 'closed' ? '#ef4444' : 'var(--text-primary)'};font-weight:600;font-size:12px;padding:6px 28px 6px 12px;border-radius:7px;outline:none;cursor:pointer;transition:all var(--transition-fast);">
-              <option value="" disabled ${!isResolved && ticket.status !== 'closed' && !ticket.awaiting_senior_contact ? 'selected' : ''}>Change Status...</option>
-              <option value="resolved" ${isResolved ? 'selected' : ''}>✓ Resolved</option>
-              <option value="escalate_senior" ${ticket.awaiting_senior_contact ? 'selected' : ''}>▲ Escalated</option>
-              <option value="misuse" ${ticket.status === 'closed' ? 'selected' : ''}>⚠ Misuse</option>
-            </select>
-            <svg class="svg-icon" style="position:absolute;right:9px;width:11px;height:11px;pointer-events:none;color:var(--text-muted);" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        <!-- Action Buttons: Generate KB Article + Case Status Dropdown -->
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button id="btn-generate-kb" class="btn-link" style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:7px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3);color:#a855f7;cursor:pointer;transition:all var(--transition-fast);" title="Auto-draft grounded Knowledge Base article from this escalation">
+            <svg class="svg-icon" style="width:12px;height:12px;color:#a855f7;" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span>✨ Draft KB Article</span>
+          </button>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <label for="select-case-status" style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">Status:</label>
+            <div style="position:relative;display:inline-flex;align-items:center;">
+              <select id="select-case-status" style="appearance:none;-webkit-appearance:none;background:${isResolved ? 'rgba(16,185,129,0.12)' : ticket.status === 'closed' ? 'rgba(239,68,68,0.12)' : 'var(--bg-card-hover)'};border:1px solid ${isResolved ? 'rgba(16,185,129,0.3)' : ticket.status === 'closed' ? 'rgba(239,68,68,0.3)' : 'var(--border-medium)'};color:${isResolved ? 'var(--emerald-text)' : ticket.status === 'closed' ? '#ef4444' : 'var(--text-primary)'};font-weight:600;font-size:12px;padding:6px 28px 6px 12px;border-radius:7px;outline:none;cursor:pointer;transition:all var(--transition-fast);">
+                <option value="" disabled ${!isResolved && ticket.status !== 'closed' && !ticket.awaiting_senior_contact ? 'selected' : ''}>Change Status...</option>
+                <option value="resolved" ${isResolved ? 'selected' : ''}>✓ Resolved</option>
+                <option value="escalate_senior" ${ticket.awaiting_senior_contact ? 'selected' : ''}>▲ Escalated</option>
+                <option value="misuse" ${ticket.status === 'closed' ? 'selected' : ''}>⚠ Misuse</option>
+              </select>
+              <svg class="svg-icon" style="position:absolute;right:9px;width:11px;height:11px;pointer-events:none;color:var(--text-muted);" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
           </div>
         </div>
       </div>
@@ -2029,6 +2035,34 @@ function renderTicketDetail(ticket) {
         await loadInboxData();
       } catch (err) {
         showDeployToast("Status update failed: " + err.message);
+      }
+    });
+  }
+
+  // Generate Knowledge Base Article from Ticket
+  const btnGenKb = document.getElementById("btn-generate-kb");
+  if (btnGenKb) {
+    btnGenKb.addEventListener("click", async () => {
+      const origHtml = btnGenKb.innerHTML;
+      try {
+        btnGenKb.disabled = true;
+        btnGenKb.innerHTML = "<span>Drafting...</span>";
+        const res = await fetch(`/api/inbox/tickets/${ticket.id}/generate-kb-article`, {
+          method: "POST",
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showDeployToast(`✨ Drafted Article: "${data.document.title}". Saved to Knowledge Base!`);
+          await loadInboxData();
+          await loadKnowledgeData();
+        } else {
+          showDeployToast(`Failed to generate article: ${data.detail || 'Error'}`);
+        }
+      } catch (err) {
+        showDeployToast("Error generating KB article: " + err.message);
+      } finally {
+        btnGenKb.disabled = false;
+        btnGenKb.innerHTML = origHtml;
       }
     });
   }
