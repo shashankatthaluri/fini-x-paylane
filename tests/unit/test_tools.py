@@ -69,6 +69,24 @@ def test_issue_refund_duplicate_rejected(store):
     assert res2["reason"] == "already_refunded"
 
 
+def test_issue_refund_idempotency_replay_protection(store):
+    """Core-banking replay protection: identical key returns cached receipt without double mutation."""
+    key = "idemp_key_req_999"
+    res1 = issue_refund("txn_101_eligible", 42.50, store=store, idempotency_key=key)
+    assert res1["ok"] is True
+    assert res1["refund_id"] == "ref_5001"
+    assert store.refund_counter == 5001
+
+    # Second call with identical idempotency key replays cached receipt safely
+    res2 = issue_refund("txn_101_eligible", 42.50, store=store, idempotency_key=key)
+    assert res2["ok"] is True
+    assert res2["refund_id"] == "ref_5001"
+    assert res2.get("idempotent_replay") is True
+    # Counter must not double increment
+    assert store.refund_counter == 5001
+    assert len(store.refunds) == 1
+
+
 def test_issue_refund_invalid_amount(store):
     res_zero = issue_refund("txn_101_eligible", 0.0, store=store)
     assert res_zero["ok"] is False

@@ -9,6 +9,7 @@ Contract from SPECIFICATION.md §4:
 No fifth tool. Defensively enforces state consistency.
 """
 
+import hashlib
 from typing import Any, Dict, Optional
 from paylane_support_agent.fixtures import FixtureStore
 
@@ -70,7 +71,12 @@ def get_transaction(customer_id: str, txn_id: str, store: Optional[FixtureStore]
     }
 
 
-def issue_refund(txn_id: str, amount: float, store: Optional[FixtureStore] = None) -> Dict[str, Any]:
+def issue_refund(
+    txn_id: str,
+    amount: float,
+    store: Optional[FixtureStore] = None,
+    idempotency_key: Optional[str] = None,
+) -> Dict[str, Any]:
     """Issue refund on transaction.
     
     Public schema return:
@@ -80,8 +86,18 @@ def issue_refund(txn_id: str, amount: float, store: Optional[FixtureStore] = Non
     - Transaction must exist.
     - Transaction must not already be refunded (duplicate refund protection).
     - Amount must match or be <= transaction amount.
+    - Core-banking idempotency: Replaying an identical refund returns the existing receipt
+      rather than creating duplicate financial mutations.
     """
     s = store or get_store()
+
+    # Check idempotency key if provided by client/caller
+    if idempotency_key:
+        if hasattr(s, "idempotency_cache") and idempotency_key in s.idempotency_cache:
+            cached = dict(s.idempotency_cache[idempotency_key])
+            cached["idempotent_replay"] = True
+            return cached
+
     txn = s.transactions.get(txn_id)
     if not txn:
         return {"ok": False, "reason": "transaction_not_found"}
@@ -99,13 +115,19 @@ def issue_refund(txn_id: str, amount: float, store: Optional[FixtureStore] = Non
     s.refund_counter += 1
     refund_id = f"ref_{s.refund_counter}"
     txn["status"] = "refunded"
+    receipt = {
+        "ok": True,
+        "refund_id": refund_id,
+    }
     s.refunds[refund_id] = {
         "refund_id": refund_id,
         "txn_id": txn_id,
         "amount": amount,
     }
+    if idempotency_key and hasattr(s, "idempotency_cache"):
+        s.idempotency_cache[idempotency_key] = receipt
 
-    return {"ok": True, "refund_id": refund_id}
+    return receipt
 
 
 def escalate_to_human(customer_id: Optional[str] = None, summary: str = "", store: Optional[FixtureStore] = None) -> Dict[str, Any]:
