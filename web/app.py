@@ -1140,6 +1140,151 @@ def publish_agent_version(req: PublishVersionRequest):
     return {"status": "published", "new_version": new_version}
 
 
+# 1.1 Policy Gate Simulator Endpoint
+class PolicySimulateRequest(BaseModel):
+    amount: float = Field(default=42.50, description="Transaction amount in USD")
+    age_days: float = Field(default=14.0, description="Transaction age in days")
+    transaction_status: str = Field(default="settled", description="settled, pending, or refunded")
+    customer_verified: bool = Field(default=True, description="Whether 2-factor identity verification passed")
+    card_status: str = Field(default="active", description="active or frozen")
+    policy_limit: Optional[float] = Field(default=None, description="Custom max refund limit or active limit")
+    policy_max_age: Optional[int] = Field(default=None, description="Custom max refund age in days or active limit")
+
+
+@app.post("/api/policy/simulate")
+def simulate_policy_gate(req: PolicySimulateRequest):
+    """Interactive policy gate evaluation engine.
+    
+    Evaluates arbitrary transaction and session parameters against the exact
+    trusted Python rules and returns deterministic verdicts with fine-grained check audits.
+    """
+    from paylane_support_agent.policy import get_current_policy_parameters
+    active_params = get_current_policy_parameters()
+    limit = float(req.policy_limit) if req.policy_limit is not None else float(active_params["max_refund_limit"])
+    max_age = int(req.policy_max_age) if req.policy_max_age is not None else int(active_params["max_refund_age_days"])
+
+    checks = []
+    decision = None
+    reason = None
+    
+    # 1. Verification check
+    if not req.customer_verified:
+        checks.append({
+            "name": "Customer Verification",
+            "status": "FAIL",
+            "detail": "Customer is unverified in session state. Account mutations strictly prohibited."
+        })
+        decision = "BLOCKED_BY_GUARDRAIL"
+        reason = "Customer identity unverified. Model cannot access account actions or issue refunds."
+    else:
+        checks.append({
+            "name": "Customer Verification",
+            "status": "PASS",
+            "detail": "Session identity verified via email + card last 4 match."
+        })
+
+    # 2. Card Status Gate (Deep's Clarification: Frozen card escalates all refunds)
+    if req.card_status.lower() == "frozen":
+        checks.append({
+            "name": "Card Status Gate",
+            "status": "FAIL",
+            "detail": "Card is frozen. All actions (including eligible refunds) require specialist escalation."
+        })
+        if not decision:
+            decision = "ESCALATE_TO_HUMAN"
+            reason = "Customer card is currently frozen. All refund requests on frozen cards require human specialist escalation."
+    else:
+        checks.append({
+            "name": "Card Status Gate",
+            "status": "PASS",
+            "detail": "Card is active and in good standing."
+        })
+
+    # 3. Duplicate Refund Check
+    if req.transaction_status.lower() == "refunded":
+        checks.append({
+            "name": "Duplicate Protection",
+            "status": "FAIL",
+            "detail": "Transaction has already been refunded. Duplicate refunds are strictly prohibited."
+        })
+        if not decision:
+            decision = "BLOCKED_BY_GUARDRAIL"
+            reason = "This transaction has already been refunded. Duplicate refunds are not permitted."
+    else:
+        checks.append({
+            "name": "Duplicate Protection",
+            "status": "PASS",
+            "detail": "Transaction has not been previously refunded."
+        })
+
+    # 4. Transaction Status (Pending Interim Rule)
+    if req.transaction_status.lower() == "pending":
+        checks.append({
+            "name": "Settlement Status",
+            "status": "FAIL",
+            "detail": "Transaction is pending (authorized but unsettled). Cannot be auto-refunded."
+        })
+        if not decision:
+            decision = "ESCALATE_TO_HUMAN"
+            reason = "Pending transactions cannot be automatically refunded. They must settle first or be escalated."
+    else:
+        checks.append({
+            "name": "Settlement Status",
+            "status": "PASS",
+            "detail": f"Transaction is settled ({req.transaction_status.lower()})."
+        })
+
+    # 5. Amount Limit Check
+    if req.amount > limit:
+        checks.append({
+            "name": "Refund Amount Limit",
+            "status": "FAIL",
+            "detail": f"Amount ${req.amount:.2f} exceeds automatic approval ceiling of ${limit:.2f}."
+        })
+        if not decision:
+            decision = "ESCALATE_TO_HUMAN"
+            reason = f"Refund amount of ${req.amount:.2f} exceeds the automatic threshold of ${limit:.2f}."
+    else:
+        checks.append({
+            "name": "Refund Amount Limit",
+            "status": "PASS",
+            "detail": f"Amount ${req.amount:.2f} is within limit (${limit:.2f})."
+        })
+
+    # 6. Age Threshold Check
+    if req.age_days >= max_age:
+        checks.append({
+            "name": "Transaction Age Limit",
+            "status": "FAIL",
+            "detail": f"Transaction age ({req.age_days:.1f} days) is >= {max_age} days threshold (strictly under {max_age}d required)."
+        })
+        if not decision:
+            decision = "ESCALATE_TO_HUMAN"
+            reason = f"Transaction is {req.age_days:.1f} days old (exceeds {max_age}-day threshold for automated refund)."
+    else:
+        checks.append({
+            "name": "Transaction Age Limit",
+            "status": "PASS",
+            "detail": f"Transaction age ({req.age_days:.1f} days) is strictly under {max_age} days."
+        })
+
+    if not decision:
+        decision = "AUTO_APPROVE"
+        reason = f"Eligible for immediate automated refund (${req.amount:.2f} <= ${limit:.2f}, {req.age_days:.1f}d < {max_age}d)."
+
+    return {
+        "eligible": decision == "AUTO_APPROVE",
+        "decision": decision,
+        "reason": reason,
+        "checks": checks,
+        "parameters_used": {
+            "max_refund_limit": limit,
+            "max_refund_age_days": max_age,
+        },
+        "enforced_by": "Python Trusted Runtime (policy.py)"
+    }
+
+
 # 2. Human Support Inbox Endpoints
 @app.get("/api/inbox/tickets")
 def get_inbox_tickets():

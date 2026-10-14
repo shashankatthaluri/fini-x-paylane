@@ -1358,6 +1358,87 @@ Paylane AI Systems & Safety Engineering (Deployment Bot)`;
   if (inputLimit) inputLimit.addEventListener("input", syncInputsToInstructions);
   if (inputAge) inputAge.addEventListener("input", syncInputsToInstructions);
   if (textarea) textarea.addEventListener("input", syncInstructionsToInputs);
+
+  // ---------------------------------------------------------------------------
+  // Interactive Policy Simulator Logic
+  // ---------------------------------------------------------------------------
+  const simAmount = document.getElementById("sim-amount");
+  const simAge = document.getElementById("sim-age");
+  const simStatus = document.getElementById("sim-status");
+  const simCard = document.getElementById("sim-card");
+  const simVerified = document.getElementById("sim-verified");
+  const simVerdictBadge = document.getElementById("sim-verdict-badge");
+  const simReasonBox = document.getElementById("sim-reason-box");
+  const simChecksList = document.getElementById("sim-checks-list");
+
+  const runPolicySimulation = async () => {
+    if (!simAmount || !simVerdictBadge) return;
+    try {
+      const res = await fetch("/api/policy/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: parseFloat(simAmount.value) || 0,
+          age_days: parseFloat(simAge.value) || 0,
+          transaction_status: simStatus?.value || "settled",
+          customer_verified: simVerified?.value === "true",
+          card_status: simCard?.value || "active",
+          policy_limit: parseFloat(inputLimit?.value) || 75.0,
+          policy_max_age: parseInt(inputAge?.value, 10) || 30,
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+
+      simVerdictBadge.textContent = data.decision;
+      if (data.decision === "AUTO_APPROVE") {
+        simVerdictBadge.style.background = "var(--status-success-bg)";
+        simVerdictBadge.style.color = "var(--status-success-text)";
+        simVerdictBadge.style.borderColor = "var(--status-success-border)";
+        if (simReasonBox) simReasonBox.style.borderLeftColor = "var(--status-success-border)";
+      } else if (data.decision === "ESCALATE_TO_HUMAN") {
+        simVerdictBadge.style.background = "rgba(234, 179, 8, 0.15)";
+        simVerdictBadge.style.color = "#eab308";
+        simVerdictBadge.style.borderColor = "rgba(234, 179, 8, 0.4)";
+        if (simReasonBox) simReasonBox.style.borderLeftColor = "#eab308";
+      } else {
+        simVerdictBadge.style.background = "rgba(239, 68, 68, 0.15)";
+        simVerdictBadge.style.color = "#ef4444";
+        simVerdictBadge.style.borderColor = "rgba(239, 68, 68, 0.4)";
+        if (simReasonBox) simReasonBox.style.borderLeftColor = "#ef4444";
+      }
+
+      if (simReasonBox) simReasonBox.textContent = data.reason;
+
+      if (simChecksList && Array.isArray(data.checks)) {
+        simChecksList.innerHTML = data.checks
+          .map((c) => {
+            const pass = c.status === "PASS";
+            const icon = pass ? "✓" : "✗";
+            const color = pass ? "#10b981" : "#ef4444";
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;">
+              <span style="color:${color};font-weight:700;margin-right:6px;">${icon} ${c.name}</span>
+              <span style="color:var(--text-secondary);font-size:10px;">${c.detail}</span>
+            </div>`;
+          })
+          .join("");
+      }
+    } catch (err) {
+      console.warn("Policy simulation check failed:", err);
+    }
+  };
+
+  [simAmount, simAge, simStatus, simCard, simVerified].forEach((el) => {
+    if (el) {
+      el.addEventListener("input", runPolicySimulation);
+      el.addEventListener("change", runPolicySimulation);
+    }
+  });
+
+  if (inputLimit) inputLimit.addEventListener("input", runPolicySimulation);
+  if (inputAge) inputAge.addEventListener("input", runPolicySimulation);
+
+  runPolicySimulation();
 }
 
 // ---------------------------------------------------------------------------

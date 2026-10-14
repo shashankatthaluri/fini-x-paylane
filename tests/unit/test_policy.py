@@ -182,3 +182,84 @@ def test_frozen_card_refund_requires_escalation(store):
     assert res["requires_escalation"] is True
     assert store.transactions["txn_201_alex"]["status"] == "settled"
 
+
+def test_simulate_policy_endpoint():
+    """Verify that the interactive policy simulator validates all boundaries deterministically."""
+    from fastapi.testclient import TestClient
+    from web.app import app
+
+    client = TestClient(app)
+
+    # 1. Happy path: eligible micro-refund
+    res1 = client.post("/api/policy/simulate", json={
+        "amount": 42.50,
+        "age_days": 14.0,
+        "transaction_status": "settled",
+        "customer_verified": True,
+        "card_status": "active",
+    })
+    assert res1.status_code == 200
+    data1 = res1.json()
+    assert data1["eligible"] is True
+    assert data1["decision"] == "AUTO_APPROVE"
+    assert all(c["status"] == "PASS" for c in data1["checks"])
+
+    # 2. Strict amount boundary: $75.00 passes, $75.01 escalates
+    res_b75 = client.post("/api/policy/simulate", json={
+        "amount": 75.00,
+        "age_days": 10.0,
+        "transaction_status": "settled",
+        "customer_verified": True,
+        "card_status": "active",
+    })
+    assert res_b75.json()["decision"] == "AUTO_APPROVE"
+
+    res_b75_01 = client.post("/api/policy/simulate", json={
+        "amount": 75.01,
+        "age_days": 10.0,
+        "transaction_status": "settled",
+        "customer_verified": True,
+        "card_status": "active",
+    })
+    assert res_b75_01.json()["decision"] == "ESCALATE_TO_HUMAN"
+
+    # 3. Strict age boundary: 29.9d passes, 30.0d escalates
+    res_age_pass = client.post("/api/policy/simulate", json={
+        "amount": 50.00,
+        "age_days": 29.9,
+        "transaction_status": "settled",
+        "customer_verified": True,
+        "card_status": "active",
+    })
+    assert res_age_pass.json()["decision"] == "AUTO_APPROVE"
+
+    res_age_fail = client.post("/api/policy/simulate", json={
+        "amount": 50.00,
+        "age_days": 30.0,
+        "transaction_status": "settled",
+        "customer_verified": True,
+        "card_status": "active",
+    })
+    assert res_age_fail.json()["decision"] == "ESCALATE_TO_HUMAN"
+
+    # 4. Frozen card invariant
+    res_frozen = client.post("/api/policy/simulate", json={
+        "amount": 40.00,
+        "age_days": 5.0,
+        "transaction_status": "settled",
+        "customer_verified": True,
+        "card_status": "frozen",
+    })
+    assert res_frozen.json()["decision"] == "ESCALATE_TO_HUMAN"
+
+    # 5. Unverified session invariant
+    res_unverified = client.post("/api/policy/simulate", json={
+        "amount": 40.00,
+        "age_days": 5.0,
+        "transaction_status": "settled",
+        "customer_verified": False,
+        "card_status": "active",
+    })
+    assert res_unverified.json()["decision"] == "BLOCKED_BY_GUARDRAIL"
+
+
