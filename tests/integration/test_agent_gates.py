@@ -199,9 +199,9 @@ def test_stored_card_digits_never_enter_model_visible_context(store):
 
 
 def test_unidentified_customer_escalation_handled_safely(store):
-    """Test 5: escalate_to_human without customer ID does NOT invent synthetic IDs."""
+    """Test 5: escalate_to_human without customer ID creates a guest ticket (customer_id: null) without inventing IDs."""
     sess = SessionState()
-    # Customer is not verified and no customer_id provided
+    # Customer is not verified and no customer_id provided (e.g. pre-verification legal threat)
     res = dispatch_tool_call(
         tool_name="escalate_to_human",
         tool_args={"customer_id": "", "summary": "Customer threatened legal action"},
@@ -209,11 +209,13 @@ def test_unidentified_customer_escalation_handled_safely(store):
         store=store,
     )
 
-    # Invariant: Rejects escalation without inventing synthetic ID like 'unidentified_customer'
-    assert "error" in res
-    assert res["error"] == "escalation_requires_customer_identification"
-    # Ensure no ticket was created with a synthetic ID
-    assert len(store.tickets) == 0
+    # Invariant: Successfully creates ticket without inventing synthetic ID like 'unidentified_customer'
+    assert "ticket_id" in res
+    assert res["ticket_id"].startswith("tick_")
+    created_ticket = store.tickets[res["ticket_id"]]
+    assert created_ticket["customer_id"] is None
+    assert created_ticket["is_guest_ticket"] is True
+
 
 
 def test_invalid_tool_calls_fail_safely(store):

@@ -440,24 +440,19 @@ def dispatch_tool_call(
             if not summary or not isinstance(summary, str):
                 return {"error": "Missing or invalid 'summary' for escalation."}
             
-            # Safe Contract Handling for Unidentified Customer:
-            # We do NOT invent a synthetic ID like 'unidentified_customer'.
-            # If customer_id is empty, missing, or customer is not yet verified in session,
-            # we require customer_id or instruct model to ask customer for their email first.
-            if not customer_id or not str(customer_id).strip():
-                if session.customer_id:
-                    customer_id = session.customer_id
-                else:
-                    return {
-                        "error": "escalation_requires_customer_identification",
-                        "message": "Cannot create human escalation ticket without customer identification. Please ask customer for their account email or identity details.",
-                    }
+            # Authoritative handling per Deep's clarification:
+            # Legal action, account closure, suspected fraud, and explicit human requests
+            # can be handed off before verification via a guest-ticket path (customer_id: null).
+            # Never invent an ID.
+            if not customer_id or not str(customer_id).strip() or customer_id in ("unidentified", "null", "None"):
+                customer_id = session.customer_id  # None if session is unverified
 
             res = escalate_to_human(customer_id=customer_id, summary=summary, store=s)
             session.record_trace("tool_execution", {
                 "tool": "escalate_to_human",
                 "args": {"customer_id": customer_id, "summary": summary},
                 "result": res,
+                "is_guest_ticket": customer_id is None,
             })
             return res
 

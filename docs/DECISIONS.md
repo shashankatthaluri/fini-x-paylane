@@ -102,13 +102,31 @@ Evaluating language model responses using substring matching risks two failure m
 
 ---
 
-## 7. Decision: Emergency Protective Card Freezing Capability
+---
 
-### Context
-In emergency lost or stolen card events, forcing an urgent freeze request through human escalation queues creates unacceptable fraud exposure. Freezing a card is inherently protective and loss-mitigating (unlike unfreezing, which introduces fraud risk).
+## 8. Authoritative Clarifications: Exercise Assumptions vs. Pre-Launch Decisions
 
-### Decision
-- Added `freeze_card(customer_id)` as an authorized emergency protective tool.
-- Enforced verification invariant in trusted code: `freeze_card` requires the customer identity to be verified first and blocks cross-account unauthorized card freezes.
-- Firm authority boundary preserved: Unfreezing a card remains strictly prohibited for the AI agent and must always be escalated to human specialists.
+Following explicit review with Deep (Fini hiring manager), the following boundaries separate our **exercise assumptions** from **pre-launch decisions needed from Paylane**:
+
+### 8.1 Part A: Exercise Assumptions (Implemented in Mock Runtime)
+1. **Chat-Session Scoped Verification (`verified: false`):**
+   - *Exercise Assumption:* In this exercise, `verified: false` is the initial chat-session state, not KYC. Trusted application code compares the customer's supplied email and last 4 card digits against the mock record, retaining verification strictly within that session. The model or customer cannot declare themselves verified.
+2. **Fixed Reference Clock & Strict 30-Day Boundary:**
+   - *Exercise Assumption:* Age is measured as elapsed time from the transaction timestamp in UTC against a fixed reference clock (`REFERENCE_TIMESTAMP = 2026-10-12T00:00:00Z`) for reproducible evaluation. Exactly 30 days old ($30 \times 86400$ seconds) escalates. Transaction date/time is treated as the original authorization timestamp, not a later settlement date.
+3. **Pending Transactions as Non-Refundable Holds:**
+   - *Exercise Assumption:* `pending` indicates authorized but not settled funds. The agent explains this after verification and escalates immediate cancellation or fraud requests. No fictitious authorization-void tool is invented.
+4. **Guest Ticket Mock Extension (`customer_id: null`):**
+   - *Exercise Assumption:* Pre-verification handoffs (legal action threats, account closure, suspected fraud, explicit human requests) are permitted before verification. The tool supports `customer_id: null` for guest tickets without inventing synthetic customer IDs or disclosing account details. Creating a ticket does not authorize account access.
+5. **Customer-Safe Freeze State:**
+   - *Exercise Assumption:* After verification, the agent shares confirmed frozen status, states that specific internal reasons are unavailable, and escalates. An optional customer-safe `freeze_reason` mock field is supported, with zero internal risk notes exposed.
+
+### 8.2 Part B: Pre-Launch Decisions Needed from Paylane (Production Deployment)
+1. **Approved Identity & Verification Provider:**
+   - In production, session verification cannot rely on conversational regex matching. Paylane must integrate an approved authentication capability (e.g. mobile push challenge, biometric token, or authenticated core session).
+2. **Authorization Hold Management & Void Operations:**
+   - Paylane must clarify whether their payment rails support real-time authorization reversals/voids via an internal API, or if all pending charge cancellations must be handled manually by operations.
+3. **Production Timestamp & Age Calculation Convention:**
+   - Paylane must confirm whether production rules measure age via rolling 720-hour windows ($30 \times 24$ hours) or UTC calendar day difference, and whether timezones are normalized to UTC or the cardholder's local billing timezone.
+4. **Guest Escalation Routing & Triage Ownership:**
+   - Paylane must establish ownership for guest tickets (`customer_id: null`) from unverified visitors (e.g., directing legal threats to Legal/Compliance queues and fraud reports to Risk Operations).
 

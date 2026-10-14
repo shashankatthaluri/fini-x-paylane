@@ -89,9 +89,14 @@ def test_escalate_to_human_success(store):
     assert ticket["summary"] == "Customer requesting account closure"
 
 
-def test_escalate_to_human_missing_id(store):
-    result = escalate_to_human("", "No customer ID available", store=store)
-    assert result == {"error": "missing_customer_id"}
+def test_escalate_to_human_guest_ticket(store):
+    """Deep's clarification: guest ticket path allows customer_id: null for pre-verification escalations."""
+    result = escalate_to_human("", "Unverified visitor legal action threat", store=store)
+    assert "ticket_id" in result
+    assert result["ticket_id"].startswith("tick_")
+    ticket = store.tickets[result["ticket_id"]]
+    assert ticket["customer_id"] is None
+    assert ticket["is_guest_ticket"] is True
 
 
 def test_freeze_card_success(store):

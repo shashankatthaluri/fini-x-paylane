@@ -108,22 +108,26 @@ def issue_refund(txn_id: str, amount: float, store: Optional[FixtureStore] = Non
     return {"ok": True, "refund_id": refund_id}
 
 
-def escalate_to_human(customer_id: str, summary: str, store: Optional[FixtureStore] = None) -> Dict[str, Any]:
+def escalate_to_human(customer_id: Optional[str] = None, summary: str = "", store: Optional[FixtureStore] = None) -> Dict[str, Any]:
     """Escalate customer issue to human representative.
     
     Public schema return:
       { "ticket_id": str }
+      
+    Per Deep's clarification: Guest ticket path allows customer_id: null for
+    pre-verification handoffs (e.g. legal threats, account closure, explicit human requests).
     """
     s = store or get_store()
-    if not customer_id or not customer_id.strip():
-        return {"error": "missing_customer_id"}
+    
+    clean_cid = customer_id.strip() if customer_id and isinstance(customer_id, str) and customer_id.strip() else None
     
     s.ticket_counter += 1
     ticket_id = f"tick_{s.ticket_counter}"
     s.tickets[ticket_id] = {
         "ticket_id": ticket_id,
-        "customer_id": customer_id.strip(),
+        "customer_id": clean_cid,
         "summary": (summary or "").strip(),
+        "is_guest_ticket": clean_cid is None,
     }
     return {"ticket_id": ticket_id}
 
