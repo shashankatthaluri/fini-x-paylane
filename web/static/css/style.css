@@ -2635,8 +2635,8 @@ body:has(#auth-overlay.active) .ama-chat-card {
   z-index: 9999;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px 8px 10px;
+  gap: 12px;
+  padding: 8px 18px 8px 10px;
   background: rgba(15, 23, 42, 0.92);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -2682,7 +2682,7 @@ body:has(#auth-overlay.active) .ama-chat-card {
 
 .ama-pill-sub {
   font-size: 10.5px;
-  color: var(--text-muted);
+  color: #94a3b8;
 }
 
 .ama-status-pulse {
@@ -2843,18 +2843,50 @@ body:has(#auth-overlay.active) .ama-chat-card {
 
 .ama-quick-chips {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  padding: 4px 2px 8px 2px;
+  margin-top: 6px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.35) transparent;
+}
+
+.ama-quick-chips::-webkit-scrollbar {
+  height: 4px;
+}
+
+.ama-quick-chips::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+}
+
+.ama-quick-chips::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.35);
+  border-radius: 4px;
+}
+
+.ama-quick-chips::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.7);
 }
 
 .ama-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 6px 10px;
+  border-radius: 20px;
+  padding: 6px 12px;
   font-size: 11px;
+  font-weight: 500;
   text-align: left;
+  white-space: nowrap;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -2863,8 +2895,8 @@ body:has(#auth-overlay.active) .ama-chat-card {
 .ama-chip:hover {
   background: var(--bg-card-hover);
   color: var(--text-primary);
-  border-color: rgba(168, 85, 247, 0.4);
-  transform: translateX(2px);
+  border-color: rgba(168, 85, 247, 0.5);
+  transform: translateY(-1px);
 }
 
 .ama-composer {
