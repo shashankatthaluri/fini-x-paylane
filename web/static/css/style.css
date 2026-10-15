@@ -2849,29 +2849,15 @@ body:has(#auth-overlay.active) .ama-chat-card {
   overflow-x: auto;
   overflow-y: hidden;
   white-space: nowrap;
-  padding: 4px 2px 8px 2px;
-  margin-top: 6px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-subtle);
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(168, 85, 247, 0.35) transparent;
+  scrollbar-width: none;
 }
 
 .ama-quick-chips::-webkit-scrollbar {
-  height: 4px;
-}
-
-.ama-quick-chips::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 4px;
-}
-
-.ama-quick-chips::-webkit-scrollbar-thumb {
-  background: rgba(168, 85, 247, 0.35);
-  border-radius: 4px;
-}
-
-.ama-quick-chips::-webkit-scrollbar-thumb:hover {
-  background: rgba(168, 85, 247, 0.7);
+  display: none;
 }
 
 .ama-chip {
@@ -2879,10 +2865,10 @@ body:has(#auth-overlay.active) .ama-chat-card {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-medium);
   border-radius: 20px;
-  padding: 6px 12px;
+  padding: 5px 12px;
   font-size: 11px;
   font-weight: 500;
   text-align: left;
@@ -2893,16 +2879,16 @@ body:has(#auth-overlay.active) .ama-chat-card {
 }
 
 .ama-chip:hover {
-  background: var(--bg-card-hover);
+  background: var(--bg-card);
   color: var(--text-primary);
-  border-color: rgba(168, 85, 247, 0.5);
+  border-color: rgba(168, 85, 247, 0.6);
   transform: translateY(-1px);
 }
 
 .ama-composer {
   padding: 10px 12px;
   background: var(--bg-card);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   gap: 8px;

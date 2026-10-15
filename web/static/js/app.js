@@ -3604,28 +3604,10 @@ function setupAmaWidget() {
             Ask me anything about my architectural decisions, the options I evaluated, how I resolved your deliberate ambiguities, or the genuine failure I caught and fixed in SC-05!
           </div>
         </div>
-        <div id="ama-chips-container" class="ama-quick-chips">
-          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('Why Python runtime policy gates instead of system prompts?');">
-            ⚡ Why Python gates instead of prompts?
-          </button>
-          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('Why strictly keep 4 public tools instead of a 5th verification tool?');">
-            ⚡ Why 4 tools instead of a 5th tool?
-          </button>
-          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('What was the genuine failure you discovered and fixed in SC-05?');">
-            ⚡ What real failure was caught in SC-05?
-          </button>
-          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('How did you handle the deliberate ambiguities in Deep\\'s email?');">
-            ⚡ How did you resolve Deep's ambiguities?
-          </button>
-          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('What are the pre-launch decisions Paylane must make?');">
-            ⚡ What pre-launch decisions are needed?
-          </button>
-          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('What enterprise enhancements did you build?');">
-            ⚡ What enterprise enhancements did you add?
-          </button>
-        </div>
       `;
     }
+    const chips = document.getElementById("ama-chips-container");
+    if (chips) chips.style.display = "flex";
   };
   window.resetAmaChat = resetAmaChat;
 
