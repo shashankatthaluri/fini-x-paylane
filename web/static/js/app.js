@@ -588,6 +588,10 @@ function setupSidebarProfile() {
         overlay.style.cssText = "display: flex !important; pointer-events: auto !important; visibility: visible !important; opacity: 1 !important;";
       }
 
+      // Close candidate AMA card if open
+      const amaCard = document.getElementById("ama-chat-card");
+      if (amaCard) amaCard.classList.remove("active");
+
       showDeployToast("Logged out successfully. Please sign in to continue.");
     });
   }

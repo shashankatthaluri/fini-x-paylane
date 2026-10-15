@@ -2617,6 +2617,17 @@ input[type="number"].clean-number-input::-webkit-inner-spin-button,
 /* ==========================================================================
    Candidate Technical Defense AMA Floating Widget ("Ask Shashank")
    ========================================================================== */
+/* Hide AMA widget on Sign In / Sign Up modal overlay */
+#auth-overlay.active ~ #ama-launcher,
+#auth-overlay.active ~ #ama-chat-card,
+body:has(#auth-overlay.active) .ama-floating-pill,
+body:has(#auth-overlay.active) .ama-chat-card {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
 .ama-floating-pill {
   position: fixed;
   bottom: 22px;
