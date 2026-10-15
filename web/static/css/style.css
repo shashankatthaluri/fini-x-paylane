@@ -2614,4 +2614,307 @@ input[type="number"].clean-number-input::-webkit-inner-spin-button,
   opacity: 0 !important;
 }
 
+/* ==========================================================================
+   Candidate Technical Defense AMA Floating Widget ("Ask Shashank")
+   ========================================================================== */
+.ama-floating-pill {
+  position: fixed;
+  bottom: 22px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px 8px 10px;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: var(--radius-full);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 15px rgba(168, 85, 247, 0.2);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.ama-floating-pill:hover {
+  transform: translateY(-2px);
+  border-color: rgba(168, 85, 247, 0.7);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 0 20px rgba(168, 85, 247, 0.35);
+}
+
+.ama-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.4);
+}
+
+.ama-pill-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.ama-pill-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.ama-pill-sub {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.ama-status-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: pulseGreen 2s infinite;
+}
+
+@keyframes pulseGreen {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* Floating Chat Card Modal */
+.ama-chat-card {
+  position: fixed;
+  bottom: 78px;
+  right: 24px;
+  width: 390px;
+  max-width: calc(100vw - 32px);
+  height: 540px;
+  max-height: calc(100vh - 100px);
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 25px rgba(168, 85, 247, 0.15);
+  display: none;
+  flex-direction: column;
+  z-index: 10000;
+  overflow: hidden;
+  animation: amaSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ama-chat-card.active {
+  display: flex;
+}
+
+@keyframes amaSlideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ama-header {
+  padding: 14px 16px;
+  background: var(--bg-card-hover);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ama-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ama-avatar-lg {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.4);
+}
+
+.ama-header-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.ama-header-role {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.ama-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ama-icon-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-muted);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ama-icon-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+}
+
+.ama-messages-stream {
+  flex: 1;
+  padding: 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg-app);
+}
+
+.ama-msg-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 90%;
+}
+
+.ama-msg-assistant {
+  align-self: flex-start;
+}
+
+.ama-msg-user {
+  align-self: flex-end;
+}
+
+.ama-bubble {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.ama-msg-assistant .ama-bubble {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+}
+
+.ama-msg-user .ama-bubble {
+  background: #a855f7;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.ama-quick-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.ama-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  text-align: left;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ama-chip:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: rgba(168, 85, 247, 0.4);
+  transform: translateX(2px);
+}
+
+.ama-composer {
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ama-input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 8px 10px;
+  outline: none;
+  resize: none;
+  max-height: 80px;
+  line-height: 1.4;
+  font-family: inherit;
+}
+
+.ama-input:focus {
+  border-color: #a855f7;
+}
+
+.ama-send-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #a855f7;
+  border: none;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.ama-send-btn:hover {
+  background: #9333ea;
+  transform: scale(1.05);
+}
+
+.ama-typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+
 

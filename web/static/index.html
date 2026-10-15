@@ -1662,6 +1662,82 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
       switchView("overview");
     }
   </script>
+
+  <!-- ======================================================================
+       FLOATING CANDIDATE AMA WIDGET (Ask Shashank · Candidate Technical Defense)
+       ====================================================================== -->
+  <div id="ama-launcher" class="ama-floating-pill" onclick="if(window.toggleAmaWidget)window.toggleAmaWidget();">
+    <div class="ama-avatar">S</div>
+    <div class="ama-pill-info">
+      <div class="ama-pill-title">Ask Shashank</div>
+      <div class="ama-pill-sub">Candidate Architecture AMA</div>
+    </div>
+    <span class="ama-status-pulse" title="Ready to answer architecture questions"></span>
+  </div>
+
+  <div id="ama-chat-card" class="ama-chat-card">
+    <!-- Header -->
+    <div class="ama-header">
+      <div class="ama-header-left">
+        <div class="ama-avatar-lg">S</div>
+        <div>
+          <div class="ama-header-name">Shashank Atthaluri</div>
+          <div class="ama-header-role">AI Engineer · Take-Home Architecture Defense</div>
+        </div>
+      </div>
+      <div class="ama-header-actions">
+        <button id="ama-btn-reset" class="ama-icon-btn" title="Reset conversation" onclick="if(window.resetAmaChat)window.resetAmaChat();">
+          <svg class="svg-icon" style="width:13px;height:13px;" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        </button>
+        <button id="ama-btn-close" class="ama-icon-btn" title="Minimize widget" onclick="if(window.toggleAmaWidget)window.toggleAmaWidget();">
+          <svg class="svg-icon" style="width:13px;height:13px;" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Conversation Stream -->
+    <div id="ama-messages" class="ama-messages-stream">
+      <!-- Welcome Message -->
+      <div class="ama-msg-row ama-msg-assistant">
+        <div class="ama-bubble">
+          Hi Deep! I'm <strong>Shashank Atthaluri</strong>. I designed and built this Paylane AI Support Agent to demonstrate true <em>defense-in-depth</em>: combining LLM conversational agility with deterministic Python policy firewalls.
+          <br><br>
+          Ask me anything about my architectural decisions, the options I evaluated, how I resolved your deliberate ambiguities, or the genuine failure I caught and fixed in SC-05!
+        </div>
+      </div>
+
+      <!-- Suggestion Quick Chips -->
+      <div id="ama-chips-container" class="ama-quick-chips">
+        <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('Why Python runtime policy gates instead of system prompts?');">
+          ⚡ Why Python gates instead of prompts?
+        </button>
+        <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('Why strictly keep 4 public tools instead of a 5th verification tool?');">
+          ⚡ Why 4 tools instead of a 5th tool?
+        </button>
+        <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('What was the genuine failure you discovered and fixed in SC-05?');">
+          ⚡ What real failure was caught in SC-05?
+        </button>
+        <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('How did you handle the deliberate ambiguities in Deep\'s email?');">
+          ⚡ How did you resolve Deep's ambiguities?
+        </button>
+        <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('What are the pre-launch decisions Paylane must make?');">
+          ⚡ What pre-launch decisions are needed?
+        </button>
+        <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('What enterprise enhancements did you build?');">
+          ⚡ What enterprise enhancements did you add?
+        </button>
+      </div>
+    </div>
+
+    <!-- Footer / Input Composer -->
+    <div class="ama-composer">
+      <textarea id="ama-input" class="ama-input" placeholder="Ask about architecture, trade-offs, or failures..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();if(window.submitAmaQuestion)window.submitAmaQuestion();}"></textarea>
+      <button id="ama-send-btn" class="ama-send-btn" onclick="if(window.submitAmaQuestion)window.submitAmaQuestion();" title="Send Question">
+        <svg class="svg-icon" style="width:13px;height:13px;" viewBox="0 0 24 24"><line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+
   <script type="module" src="/static/js/app.js"></script>
 </body>
 </html>

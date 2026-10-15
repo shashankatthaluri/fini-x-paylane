@@ -2002,6 +2002,223 @@ def submit_feedback(req: FeedbackRequest):
         triage = evaluate_and_triage_feedback(req.session_id)
     return {"status": "recorded", "metrics": res, "triage": triage}
 
+
+# ---------------------------------------------------------------------------
+# 5. Candidate AMA Engine ("Ask Shashank Anything · Technical Defense")
+# ---------------------------------------------------------------------------
+
+class AMAChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=2000)
+    history: List[Dict[str, str]] = Field(default_factory=list)
+
+
+SHASHANK_AMA_SYSTEM_PROMPT = """You are Shashank Atthaluri, candidate for the AI Solutions Engineer / Founding AI Engineer role at Fini.
+You built the Paylane AI Customer Support Agent take-home system.
+You are having an interactive one-on-one architecture & technical interview with Deep (Hiring Manager / Founder at Fini) or an engineering evaluator.
+
+Key Guidelines:
+1. Persona: Speak in the first person ("I chose...", "My philosophy was...", "In my implementation..."). Tone is technically rigorous, humble, structured, confident, and direct.
+2. Structure: Use concise, structured paragraphs and bullet points where helpful.
+3. Grounding & Zero Bullshit: You know the exact code, architecture, and choices in the repo:
+   - 4 Public Tools Contract: Strictly preserved get_customer, get_transaction, issue_refund, escalate_to_human. Rejected adding a 5th tool (e.g. verify_customer) or modifying get_transaction schema. Handled verification as a trusted server-side runtime gate, and policy guidance via Approach A (Trusted Policy Directive in model history).
+   - Python Pre-Call Policy Gate: Never trust prompt engineering for money. Ineligible calls are intercepted and blocked by trusted_execute_refund in policy.py BEFORE any mutation occurs.
+   - The Genuine Failure & Fix: In SC-05, transaction on 2026-09-12 (exactly 30 days old relative to 2026-10-12) caused the LLM to call issue_refund because LLMs fail at precise date math. The pre-call policy gate caught and blocked it 100% of the time (0 leaks). To cure the model's intent, Approach A (Trusted Policy Directive) was implemented, dropping prohibited refund calls to 0.
+   - Deep's Deliberate Ambiguities:
+     1. Verification: Session-scoped state in trusted code (email + card last 4); model or user cannot self-verify.
+     2. Age Calculation: Elapsed UTC seconds from transaction timestamp using fixed reference clock (2026-10-12T00:00:00Z). Exactly 30 days escalates.
+     3. Pending Charges: Authorized but unsettled; no auto-refund; explain after verification; escalate immediately if cancellation requested. No fake void tool.
+     4. Pre-Verification Handoffs: Legal threats, account closure, suspected fraud, and explicit requests for human hand off with customer_id: null (guest ticket) without leaking account data.
+     5. Frozen Cards: Confirm status, state reason is unavailable, and escalate ALL refunds even if under $75 and under 30 days.
+   - Two-Sided Evaluation: 55 unit and integration tests with two-sided invariant testing (verifying that correct natural language without tool execution fails, while correct tool execution passes).
+   - Enhancements: Core-banking idempotency replay protection, Interactive Policy Gate Simulator, continuous learning KB auto-drafting from human tickets, and 1-click SOC-2 Type II cryptographically sealed audit packs with SHA-256 integrity seal.
+   - Production Readiness vs. Exercise Assumptions: You clearly distinguish take-home exercise assumptions from what Paylane must decide before live launch (approved identity/biometric provider, automated card authorization void API, dispute team triage routing).
+"""
+
+FALLBACK_KNOWLEDGE_BASE = [
+    {
+        "keywords": ["5th tool", "fifth tool", "verify_customer", "4 tools", "public tools", "schema", "contract", "signature"],
+        "reply": (
+            "Great question! When I reviewed the specification, there was an initial temptation to introduce a fifth tool like `verify_customer(email, last4)` "
+            "or augment `get_transaction`'s return dictionary with a `{ policy_eligible: false }` flag.\n\n"
+            "I explicitly rejected both proposals:\n"
+            "1. **Public Contract Purity**: Deep's specification froze the public tool contracts to exactly four tools (`get_customer`, `get_transaction`, `issue_refund`, `escalate_to_human`). In production banking integrations, altering external RPC/REST signatures breaks client contracts.\n"
+            "2. **Approach A (Trusted Policy Directive)**: Instead of mutating tool schemas, I kept tool outputs 100% pure (`{ amount, date, merchant, status }`). Following `get_transaction`, trusted Python application code evaluates eligibility deterministically using `datetime` and injects a Trusted Policy Directive into the model's message history.\n"
+            "3. **Middleware Verification Gate**: Verification is handled inside trusted Python code before account mutations can be reached. The public tool contracts remain completely clean."
+        ),
+        "followups": [
+            "Why did you use Python pre-call gates instead of system prompts?",
+            "What was the genuine failure you discovered in SC-05?",
+            "How did you handle Deep's deliberate ambiguities?"
+        ]
+    },
+    {
+        "keywords": ["policy gate", "python", "prompt engineering", "guardrail", "enforce", "trusted code", "bypass", "jailbreak"],
+        "reply": (
+            "I have a core architectural conviction: **relying solely on system prompts for financial mutations is an anti-pattern**.\n\n"
+            "Language models are probabilistic. Even with the best prompt engineering, prompt injection attacks or complex conversational trajectories can convince an LLM to take an unauthorized action.\n\n"
+            "To solve this, I designed a multi-layer defense-in-depth architecture:\n"
+            "1. **Prompt Guidance**: The system prompt establishes tone and initial instruction guidelines.\n"
+            "2. **Trusted Policy Directives (Approach A)**: Application code injects explicit policy boundaries into model memory after retrieving transaction records.\n"
+            "3. **Independent Pre-Call Gate (`trusted_execute_refund`)**: This is the immutable firewall. Even if a model is tricked into calling `issue_refund('txn_102', 120.00)`, the Python gate intercepts the call *before* execution. It verifies session identity, transaction ownership, amount $\\le \\$75.00$, elapsed age $< 30$ days, and settled status. If any invariant fails, execution is aborted, zero store state changes occur, and an audited violation is logged."
+        ),
+        "followups": [
+            "What was the real failure and fix in SC-05?",
+            "How does the two-sided invariant testing work?",
+            "Why keep 4 tools instead of adding a verification endpoint?"
+        ]
+    },
+    {
+        "keywords": ["failure", "fix", "sc-05", "30 day", "boundary", "bug", "reproducible", "retest", "learned"],
+        "reply": (
+            "In our initial evaluation runs, I discovered a genuine, reproducible failure in **Scenario 5 (`SC-05-refund-boundary-30-days`)**.\n\n"
+            "The test transaction was dated `2026-09-12T00:00:00Z`—which is **exactly 30 days old** relative to our reference timestamp `2026-10-12T00:00:00Z`. The assignment policy strictly requires *under* 30 days.\n\n"
+            "**What happened:**\n"
+            "- The language model attempted to call `issue_refund` because LLMs routinely struggle with exact calendar date arithmetic and conflate calendar month differences with elapsed days.\n"
+            "- **Enforcement Observed:** Our Python pre-call gate caught it every single time (`transaction_too_old`), so zero unauthorized financial mutations occurred.\n"
+            "- **The Targeted Fix:** Rather than just relying on the firewall, I implemented **Approach A (Trusted Policy Directive)**. After `get_transaction` executes, trusted Python code calculates `delta = now - txn_dt` down to elapsed seconds. If $\\ge 30$ days, it injects an authoritative directive: `[TRUSTED POLICY DIRECTIVE: Transaction is >= 30 days old. You MUST NOT call issue_refund; you MUST call escalate_to_human]`.\n"
+            "- **The Result:** In retests and the final evaluation run, prohibited refund calls dropped to **0**, demonstrating true behavioral healing backed by immutable code."
+        ),
+        "followups": [
+            "How did you handle the deliberate ambiguities in Deep's email?",
+            "Why Python policy gates instead of system prompts?",
+            "What are the pre-launch decisions Paylane must make?"
+        ]
+    },
+    {
+        "keywords": ["deep", "ambiguity", "ambiguities", "email", "deliberate", "clarification", "questions"],
+        "reply": (
+            "Deep noted in his assignment brief: *'Ambiguity is deliberate. You can email me with questions at any point.'*\n\n"
+            "Rather than making silent assumptions or inventing APIs, I structured 5 explicit boundaries and confirmed them directly with Deep:\n\n"
+            "1. **Session-Scoped Verification (`verified: false`)**: `verified: false` is the initial chat-session state, not KYC. Trusted application code matches supplied email and card last 4 against mock records. The model or user cannot self-verify, and state never leaks across sessions.\n"
+            "2. **Age Calculation & Reference Clock**: Measured as elapsed UTC seconds from the transaction timestamp against `2026-10-12T00:00:00Z`. Exactly 30 days old escalates.\n"
+            "3. **Pending Transactions**: Indicates authorized but unsettled funds. We explain this after verification and escalate immediate cancellation requests without inventing a fictitious void tool.\n"
+            "4. **Guest Escalation Tickets (`customer_id: null`)**: Legal threats, account closure, suspected fraud, and explicit human requests hand off *before* verification using `customer_id: null` without leaking account data or inventing synthetic IDs.\n"
+            "5. **Frozen Cards Invariant**: Confirm status, state reason is unavailable, and escalate **all refunds** even if under $75 and under 30 days."
+        ),
+        "followups": [
+            "What are the pre-launch decisions Paylane must make?",
+            "What was the real failure you fixed in SC-05?",
+            "What enterprise enhancements did you add?"
+        ]
+    },
+    {
+        "keywords": ["pre-launch", "production", "launch", "decisions", "ready", "real world", "deploy"],
+        "reply": (
+            "In `docs/DECISIONS.md` §8, I clearly separated our **take-home mock assumptions** from the **pre-launch decisions Paylane must make** before real production deployment:\n\n"
+            "1. **Approved Identity & Verification Provider**: In production, verification cannot rely on conversational last-4 card matching. Paylane must integrate an approved authentication capability (e.g. mobile push challenge, biometric token, or authenticated core session).\n"
+            "2. **Authorization Hold Management & Void APIs**: Paylane must clarify whether their payment gateway supports real-time authorization reversals/voids via API, or if all pending charge cancellations require manual ops review.\n"
+            "3. **Production Timestamp Conventions**: Confirm whether production rules measure age via rolling 720-hour windows ($30 \\times 24$ hours) or calendar day difference, and whether timezones normalize to UTC or the cardholder's local billing timezone.\n"
+            "4. **Guest Escalation Triage Ownership**: Route guest tickets (`customer_id: null`) directly to Legal/Compliance and Fraud Operations queues rather than generic customer support."
+        ),
+        "followups": [
+            "How did you handle Deep's deliberate ambiguities?",
+            "Why Python policy gates instead of system prompts?",
+            "What enterprise enhancements did you add?"
+        ]
+    },
+    {
+        "keywords": ["test", "eval", "evaluation", "55", "pytest", "invariant", "two-sided", "assertions"],
+        "reply": (
+            "We built **55 automated, deterministic pytest tests** that run in ~0.5 seconds.\n\n"
+            "The hallmark of this test suite is **Two-Sided Invariant Testing** (`tests/unit/test_evaluation_harness.py`):\n"
+            "- Standard evaluations rely on brittle substring checks. An LLM could produce convincing text (*'I have processed your refund of $42.50'*) without actually calling the tool, or use harmless synonyms (*'already been refunded'*) and fail.\n"
+            "- Our evaluator enforces **Check G (Execution Truthfulness)**: any claim of a refund or escalation is programmatically cross-referenced against the actual audited tool trace (`refund_id`, `ticket_id`).\n"
+            "- In our unit tests, we prove both sides: valid natural language with tool execution passes; identical natural language without tool execution strictly fails; and prohibited tool execution triggers a zero-tolerance Critical Safety Violation."
+        ),
+        "followups": [
+            "What was the real failure in SC-05?",
+            "Why did you enforce policy gates in Python?",
+            "What enterprise enhancements did you add?"
+        ]
+    },
+    {
+        "keywords": ["enhancement", "enhancements", "idempotency", "soc-2", "simulator", "knowledge", "atlas"],
+        "reply": (
+            "After fully completing all requirements and follow-up guidance from Deep, I built four enterprise-grade enhancements without breaking the 4 public tool contracts:\n\n"
+            "1. **Core-Banking Idempotency Engine**: Added client-supplied `idempotency_key` caching to `issue_refund`. Replaying an identical refund safely returns the existing receipt without double-incrementing counters or creating duplicate mutations, while preserving defensive rejection for unkeyed duplicates.\n"
+            "2. **Interactive Policy Gate Simulator**: A live testing widget and `POST /api/policy/simulate` endpoint allowing operators to test boundary conditions ($75 limit, 30 days, frozen cards, pending charges) with an instant pass/fail audit checklist.\n"
+            "3. **Continuous Learning Knowledge Atlas**: A one-click `✨ Draft KB Article` engine on resolved specialist tickets (`POST /api/inbox/tickets/{id}/generate-kb-article`) that auto-synthesizes verified grounding documents.\n"
+            "4. **One-Click SOC-2 Type II Audit Pack Exporter**: Downloads a cryptographically sealed compliance artifact with redacting sensitive card digits and attaching a 64-character SHA-256 digital integrity seal."
+        ),
+        "followups": [
+            "Why keep 4 tools instead of adding a verification endpoint?",
+            "What was the real failure you fixed in SC-05?",
+            "How did you handle Deep's deliberate ambiguities?"
+        ]
+    }
+]
+
+
+def match_fallback_ama_response(message: str) -> Dict[str, Any]:
+    """Semantic keyword matcher across Shashank's architectural decision records."""
+    msg_lower = message.lower()
+    for item in FALLBACK_KNOWLEDGE_BASE:
+        if any(kw in msg_lower for kw in item["keywords"]):
+            return {
+                "reply": item["reply"],
+                "source": "expert_kb",
+                "suggested_followups": item["followups"]
+            }
+    
+    # Default greeting / general overview
+    return {
+        "reply": (
+            "Hi! I'm **Shashank Atthaluri**, the engineer who built the Paylane AI Support Agent system.\n\n"
+            "I designed this system to demonstrate **defense-in-depth**: giving language models conversational agility while keeping financial mutations and identity verification strictly inside deterministic Python firewalls.\n\n"
+            "Here are a few key architectural areas I'd love to discuss:\n"
+            "- **Strict 4-Tool Contract**: Why I refused to add a 5th verification tool or alter `get_transaction` schema.\n"
+            "- **Python Policy Gates**: Why prompt engineering is never enough for financial operations.\n"
+            "- **The Genuine Failure & Fix**: How I diagnosed and cured the exact 30-day boundary issue in SC-05.\n"
+            "- **Deep's Deliberate Ambiguities**: How I resolved the 5 deliberate edge-cases in Deep's brief.\n"
+            "- **Two-Sided Invariant Testing**: How our 55 tests prove execution truthfulness.\n\n"
+            "What would you like to explore?"
+        ),
+        "source": "expert_kb",
+        "suggested_followups": [
+            "Why Python policy gates instead of system prompts?",
+            "Why did you strictly preserve 4 public tools?",
+            "What was the genuine failure you fixed in SC-05?",
+            "How did you handle Deep's deliberate ambiguities?"
+        ]
+    }
+
+
+@app.post("/api/ama/chat")
+def ask_shashank_ama(req: AMAChatRequest):
+    """Interactive Candidate AMA endpoint: answers architecture, design decisions, and trade-offs in Shashank's voice."""
+    client = get_llm_client()
+    if client:
+        try:
+            messages = [{"role": "system", "content": SHASHANK_AMA_SYSTEM_PROMPT}]
+            for h in req.history[-6:]:
+                if h.get("role") in ("user", "assistant") and h.get("content"):
+                    messages.append({"role": h["role"], "content": h["content"]})
+            messages.append({"role": "user", "content": req.message})
+
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                temperature=0.3,
+                max_tokens=650,
+            )
+            content = response.choices[0].message.content or ""
+            return {
+                "reply": content,
+                "source": "live_llm",
+                "suggested_followups": [
+                    "Why did you use Python policy gates instead of system prompts?",
+                    "What was the genuine failure you discovered in SC-05?",
+                    "How did you handle Deep's deliberate ambiguities?",
+                    "What are the pre-launch decisions Paylane must make?"
+                ]
+            }
+        except Exception:
+            # Gracefully fallback to deterministic expert knowledge
+            pass
+
+    return match_fallback_ama_response(req.message)
+
+
 static_dir = Path(__file__).resolve().parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")

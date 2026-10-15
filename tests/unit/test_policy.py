@@ -283,4 +283,37 @@ def test_generate_kb_article_from_ticket():
     assert res_404.status_code == 404
 
 
+def test_ask_shashank_ama_endpoint():
+    """Verify that the Ask Shashank AMA endpoint accurately articulates architecture decisions and trade-offs."""
+    from fastapi.testclient import TestClient
+    from web.app import app, match_fallback_ama_response
+
+    client = TestClient(app)
+
+    # 1. Test live endpoint call
+    res = client.post("/api/ama/chat", json={
+        "message": "Why did you choose to keep 4 tools instead of adding a 5th tool?",
+        "history": []
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert "reply" in data
+    assert len(data["reply"]) > 50
+    assert data["source"] in ("live_llm", "expert_kb")
+    assert isinstance(data.get("suggested_followups"), list)
+
+    # 2. Test deterministic knowledge matcher for core architectural topics
+    res_gate = match_fallback_ama_response("Why Python policy gates instead of system prompts?")
+    assert "pre-call gate" in res_gate["reply"].lower() or "firewall" in res_gate["reply"].lower()
+
+    res_fail = match_fallback_ama_response("What was the genuine failure you fixed in SC-05?")
+    assert "sc-05" in res_fail["reply"].lower()
+    assert "30 days" in res_fail["reply"].lower()
+
+    res_deep = match_fallback_ama_response("How did you handle the deliberate ambiguities in Deep's email?")
+    assert "verification" in res_deep["reply"].lower()
+    assert "pending" in res_deep["reply"].lower()
+
+
+
 

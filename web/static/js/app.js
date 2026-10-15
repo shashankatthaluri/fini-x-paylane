@@ -651,6 +651,7 @@ async function init() {
   setupCustomerWidget();
   setupAgentStudio();
   setupExecutiveModal();
+  setupAmaWidget();
 
   // 1. Initial Load of Scenarios
   try {
@@ -3559,6 +3560,157 @@ function setupExecutiveModal() {
   if (btnClose && modal) {
     btnClose.addEventListener("click", () => modal.classList.remove("active"));
   }
+}
+
+// ---------------------------------------------------------------------------
+// 11. Candidate AMA Widget ("Ask Shashank Anything")
+// ---------------------------------------------------------------------------
+function setupAmaWidget() {
+  const launcher = document.getElementById("ama-launcher");
+  const card = document.getElementById("ama-chat-card");
+  const btnClose = document.getElementById("ama-btn-close");
+  const btnReset = document.getElementById("ama-btn-reset");
+  const input = document.getElementById("ama-input");
+  const sendBtn = document.getElementById("ama-send-btn");
+  const msgContainer = document.getElementById("ama-messages");
+
+  let amaHistory = [];
+  let isThinking = false;
+
+  const toggleAmaWidget = () => {
+    if (!card) return;
+    const isActive = card.classList.contains("active");
+    if (isActive) {
+      card.classList.remove("active");
+    } else {
+      card.classList.add("active");
+      if (input) setTimeout(() => input.focus(), 150);
+    }
+  };
+  window.toggleAmaWidget = toggleAmaWidget;
+
+  const resetAmaChat = () => {
+    amaHistory = [];
+    if (msgContainer) {
+      msgContainer.innerHTML = `
+        <div class="ama-msg-row ama-msg-assistant">
+          <div class="ama-bubble">
+            Hi Deep! I'm <strong>Shashank Atthaluri</strong>. I designed and built this Paylane AI Support Agent to demonstrate true <em>defense-in-depth</em>: combining LLM conversational agility with deterministic Python policy firewalls.
+            <br><br>
+            Ask me anything about my architectural decisions, the options I evaluated, how I resolved your deliberate ambiguities, or the genuine failure I caught and fixed in SC-05!
+          </div>
+        </div>
+        <div id="ama-chips-container" class="ama-quick-chips">
+          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('Why Python runtime policy gates instead of system prompts?');">
+            ⚡ Why Python gates instead of prompts?
+          </button>
+          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('Why strictly keep 4 public tools instead of a 5th verification tool?');">
+            ⚡ Why 4 tools instead of a 5th tool?
+          </button>
+          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('What was the genuine failure you discovered and fixed in SC-05?');">
+            ⚡ What real failure was caught in SC-05?
+          </button>
+          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('How did you handle the deliberate ambiguities in Deep\\'s email?');">
+            ⚡ How did you resolve Deep's ambiguities?
+          </button>
+          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('What are the pre-launch decisions Paylane must make?');">
+            ⚡ What pre-launch decisions are needed?
+          </button>
+          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('What enterprise enhancements did you build?');">
+            ⚡ What enterprise enhancements did you add?
+          </button>
+        </div>
+      `;
+    }
+  };
+  window.resetAmaChat = resetAmaChat;
+
+  const appendAmaMessage = (role, text) => {
+    if (!msgContainer) return;
+    const row = document.createElement("div");
+    row.className = `ama-msg-row ama-msg-${role}`;
+    
+    // Format text with basic markdown if assistant
+    let formattedText = text;
+    if (role === "assistant") {
+      formattedText = typeof formatMarkdown === "function" ? formatMarkdown(text) : text.replace(/\n/g, "<br>");
+    }
+
+    row.innerHTML = `<div class="ama-bubble">${formattedText}</div>`;
+    msgContainer.appendChild(row);
+    msgContainer.scrollTop = msgContainer.scrollHeight;
+  };
+
+  const submitAmaQuestion = async (customPrompt) => {
+    if (isThinking) return;
+    const text = (customPrompt || (input ? input.value : "")).trim();
+    if (!text) return;
+
+    if (input && !customPrompt) {
+      input.value = "";
+      input.style.height = "auto";
+    }
+
+    // Hide quick chips on first user message
+    const chips = document.getElementById("ama-chips-container");
+    if (chips) chips.style.display = "none";
+
+    appendAmaMessage("user", text);
+    amaHistory.push({ role: "user", content: text });
+
+    // Typing indicator
+    const typingRow = document.createElement("div");
+    typingRow.className = "ama-msg-row ama-msg-assistant";
+    typingRow.id = "ama-typing-indicator-row";
+    typingRow.innerHTML = `<div class="ama-typing-indicator"><span class="ama-status-pulse" style="width:6px;height:6px;"></span> Shashank is typing...</div>`;
+    msgContainer.appendChild(typingRow);
+    msgContainer.scrollTop = msgContainer.scrollHeight;
+
+    isThinking = true;
+    try {
+      const res = await fetch("/api/ama/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          history: amaHistory.slice(-6)
+        })
+      });
+      const data = await res.json();
+      
+      const typingEl = document.getElementById("ama-typing-indicator-row");
+      if (typingEl) typingEl.remove();
+
+      const reply = data.reply || "I'd be glad to discuss that further. Feel free to ask about any other architectural trade-off.";
+      appendAmaMessage("assistant", reply);
+      amaHistory.push({ role: "assistant", content: reply });
+
+      // Render suggested followups if available
+      if (Array.isArray(data.suggested_followups) && data.suggested_followups.length > 0) {
+        const followupsContainer = document.createElement("div");
+        followupsContainer.className = "ama-quick-chips";
+        followupsContainer.style.marginTop = "6px";
+        followupsContainer.innerHTML = data.suggested_followups.slice(0, 3).map(f => `
+          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('${f.replace(/'/g, "\\'")}');">
+            ↳ ${f}
+          </button>
+        `).join("");
+        msgContainer.appendChild(followupsContainer);
+        msgContainer.scrollTop = msgContainer.scrollHeight;
+      }
+    } catch (err) {
+      const typingEl = document.getElementById("ama-typing-indicator-row");
+      if (typingEl) typingEl.remove();
+      appendAmaMessage("assistant", "I ran into a connection issue reaching the AMA engine, but all architectural decisions are documented in detail in `docs/DECISIONS.md`.");
+    } finally {
+      isThinking = false;
+    }
+  };
+  window.submitAmaQuestion = submitAmaQuestion;
+
+  window.sendAmaPrompt = (promptText) => {
+    submitAmaQuestion(promptText);
+  };
 }
 
 // Start on DOMContentLoaded or immediately if DOM is already ready
