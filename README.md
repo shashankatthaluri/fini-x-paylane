@@ -92,16 +92,37 @@ When testing the live agent in the **Interactive Sandbox (Web UI)** or via CLI, 
 
 ---
 
+### Quickstart: Try It Immediately
+
+#### Option A: Zero-Dependency Terminal CLI Demo (Fastest)
+Run the standalone terminal runner with interactive menus, dialogue sandbox, and SC-05 bug inspection:
+```bash
+python demo.py
+```
+
+#### Option B: Full Web Console & Interactive Sandbox
+Launch the high-fidelity web workspace (mimicking Fini's enterprise console):
+```bash
+python -m uvicorn web.app:app --host 127.0.0.1 --port 8000
+```
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) to access:
+- **Operations Overview**: 90.0% AI resolution rate benchmark, live token/cost meters, and one-click **Executive Dossier (.zip)** export.
+- **Interactive Sandbox & Customer Widget**: Real-time customer dialogue with live tool execution traces.
+- **Audited Policy Evaluation**: All 12 scenarios with full multi-turn transcripts, assertion logs, and "Run Live Re-Evaluation".
+- **Candidate AMA**: Interactive system architecture defense answering deliberate ambiguities and trade-offs.
+
+---
+
 ## 6. Running Tests
 
 ### 6.1 Automated Unit & Integration Tests (Deterministic / Offline)
-The repository includes 56 automated pytest tests exercising the policy engine, session isolation, sanitization, public tool contracts, core-banking idempotency replay protection, interactive policy simulation, knowledge auto-drafting from human escalations, SOC-2 compliance audit generation, interactive candidate AMA technical defense, and two-sided evaluator regressions:
+The repository includes **58 automated pytest tests** exercising the policy engine, session isolation, sanitization, public tool contracts, core-banking idempotency replay protection, interactive policy simulation, knowledge auto-drafting from human escalations, SOC-2 compliance audit generation, executive submission dossier export, interactive candidate AMA technical defense, and two-sided evaluator regressions:
 ```bash
 python -m pytest -v
 ```
-*Expected Result:* 56 passed in ~0.5 seconds.
+*Expected Result:* 58 passed in ~16 seconds (0 failed).
 
-### 5.2 Two-Sided Evaluation Harness Tests
+### 6.2 Two-Sided Evaluation Harness Tests
 The evaluation harness includes two-sided invariant tests proving that:
 - Legitimate natural language with confirmed tool execution passes.
 - Identical natural language without confirmed tool execution fails.

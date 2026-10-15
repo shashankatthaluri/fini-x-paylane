@@ -80,6 +80,15 @@ export const api = {
     return res.json();
   },
 
+  async executeScenarioEvaluation(scenarioId) {
+    const res = await fetch(`${API_BASE}/api/evaluation/scenarios/${scenarioId}/execute`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) throw new Error("Failed to execute live scenario evaluation");
+    return res.json();
+  },
+
   // Fini Operations Console Endpoints
   async getAgentVersions() {
     const res = await fetch(`${API_BASE}/api/studio/versions`);

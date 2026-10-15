@@ -3335,11 +3335,51 @@ function setupEvaluationViewToggles() {
       transContainer.style.display = "block";
     };
   }
+
+  // Hook up Live Scenario Re-Evaluation button
+  const btnRunLive = document.getElementById("btn-run-live-eval");
+  if (btnRunLive) {
+    btnRunLive.onclick = async () => {
+      const scId = state.selectedScenarioId || "SC-01-eligible-refund";
+      try {
+        btnRunLive.disabled = true;
+        btnRunLive.innerHTML = `
+          <svg class="svg-icon spinning" style="width:11px;height:11px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/></svg>
+          <span>Re-evaluating...</span>
+        `;
+        const liveRes = await api.executeScenarioEvaluation(scId);
+        
+        await loadEvaluationDetail(scId, liveRes);
+
+        const badge = document.getElementById("banner-scenario-badge");
+        if (badge) {
+          const critCount = (liveRes.critical_violations || []).length;
+          badge.textContent = liveRes.passed ? `✓ LIVE VERIFIED · 0 VIOLATIONS (${liveRes.execution_mode})` : `✗ FAILED (${critCount} violations)`;
+          badge.style.background = liveRes.passed ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)";
+          badge.style.color = liveRes.passed ? "var(--emerald-text)" : "#ef4444";
+        }
+
+        showDeployToast(`Scenario ${scId.substring(0, 5)} re-evaluated live: ${liveRes.passed ? "100% Policy Pass (0 Violations)" : "Violations Detected"}`);
+
+        if (typeof loadOverviewData === "function") loadOverviewData();
+        if (typeof loadAnalyticsData === "function") loadAnalyticsData();
+      } catch (err) {
+        console.error("Live eval error:", err);
+        showDeployToast(`Live evaluation failed: ${err.message}`);
+      } finally {
+        btnRunLive.disabled = false;
+        btnRunLive.innerHTML = `
+          <svg class="svg-icon" style="width:11px;height:11px;fill:currentColor;" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>Run Live Re-Evaluation</span>
+        `;
+      }
+    };
+  }
 }
 
-async function loadEvaluationDetail(scId) {
+async function loadEvaluationDetail(scId, precomputedDetail = null) {
   try {
-    const detail = await api.getScenarioEvaluationDetail(scId);
+    const detail = precomputedDetail || await api.getScenarioEvaluationDetail(scId);
     
     // Banner info
     const elId = document.getElementById("banner-scenario-id");

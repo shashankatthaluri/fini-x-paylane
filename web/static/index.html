@@ -123,8 +123,11 @@
         <span id="topbar-subtitle" class="topbar-view-subtitle">Realtime metrics, active resolutions, and operational health</span>
       </div>
 
-      <div class="topbar-actions">
-        <!-- Minimal clean header: workspace state updates automatically -->
+      <div class="topbar-actions" style="display:flex;align-items:center;gap:10px;">
+        <a id="btn-download-dossier" href="/api/export/executive-dossier" class="btn-link" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:6px;color:var(--emerald-text);font-size:12px;font-weight:600;text-decoration:none;transition:all 0.15s;" title="Download complete verified submission bundle (12 transcripts, report, ADRs, customer note)">
+          <svg class="svg-icon" style="width:13px;height:13px;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Executive Dossier (.zip)</span>
+        </a>
       </div>
     </header>
 
@@ -1019,12 +1022,18 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
                 <div style="display:flex;align-items:center;gap:10px;">
                   <span id="banner-scenario-id" class="scenario-id-tag">SC-01</span>
                   <span id="banner-scenario-title" class="scenario-banner-title">Eligible Card Refund</span>
-                  <span class="scenario-banner-badge">✓ PASSED · 0 VIOLATIONS</span>
+                  <span id="banner-scenario-badge" class="scenario-banner-badge">✓ PASSED · 0 VIOLATIONS</span>
                 </div>
-                <!-- View Mode Toggle -->
-                <div class="eval-view-toggle" style="display:flex;background:var(--bg-app);border:1px solid var(--border-medium);border-radius:6px;padding:2px;gap:2px;">
-                  <button id="btn-eval-view-dialogue" class="eval-toggle-btn active" type="button">Multi-Turn Dialogue</button>
-                  <button id="btn-eval-view-transcript" class="eval-toggle-btn" type="button">Verbatim Markdown Transcript</button>
+                <!-- Action Controls: Run Live & View Mode Toggle -->
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <button id="btn-run-live-eval" type="button" class="btn-primary" style="font-size:11.5px;padding:4px 12px;height:28px;display:flex;align-items:center;gap:6px;border-radius:6px;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:#fff;border:none;cursor:pointer;font-weight:600;box-shadow:0 2px 6px rgba(16,185,129,0.3);">
+                    <svg class="svg-icon" style="width:11px;height:11px;fill:currentColor;" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    <span>Run Live Re-Evaluation</span>
+                  </button>
+                  <div class="eval-view-toggle" style="display:flex;background:var(--bg-app);border:1px solid var(--border-medium);border-radius:6px;padding:2px;gap:2px;">
+                    <button id="btn-eval-view-dialogue" class="eval-toggle-btn active" type="button">Multi-Turn Dialogue</button>
+                    <button id="btn-eval-view-transcript" class="eval-toggle-btn" type="button">Verbatim Markdown Transcript</button>
+                  </div>
                 </div>
               </div>
               <div id="banner-scenario-desc" class="scenario-banner-desc"></div>

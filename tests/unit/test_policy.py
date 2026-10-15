@@ -315,5 +315,40 @@ def test_ask_shashank_ama_endpoint():
     assert "pending" in res_deep["reply"].lower()
 
 
+def test_execute_scenario_evaluation_endpoint():
+    """Verify that the live scenario execution endpoint executes SC-01 and returns evaluated turns and pass status."""
+    from fastapi.testclient import TestClient
+    from web.app import app
+
+    client = TestClient(app)
+    res = client.post("/api/evaluation/scenarios/SC-01-eligible-refund/execute")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["scenario_id"] == "SC-01-eligible-refund"
+    assert data["passed"] is True
+    assert len(data["critical_violations"]) == 0
+def test_export_executive_dossier_endpoint():
+    """Verify that /api/export/executive-dossier produces a valid ZIP archive with executive files."""
+    import io
+    import zipfile
+    from fastapi.testclient import TestClient
+    from web.app import app
+
+    client = TestClient(app)
+    res = client.get("/api/export/executive-dossier")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/zip"
+    assert "paylane-executive-dossier.zip" in res.headers["content-disposition"]
+
+    zf = zipfile.ZipFile(io.BytesIO(res.content))
+    namelist = zf.namelist()
+    assert "EXECUTIVE_SUMMARY.md" in namelist
+    assert "docs/customer_note.md" in namelist
+    assert "evaluation/results.json" in namelist
+    assert "evaluation/report.md" in namelist
+
+
+
+
 
 
