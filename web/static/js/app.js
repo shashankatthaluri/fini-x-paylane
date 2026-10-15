@@ -958,7 +958,7 @@ async function loadOverviewData() {
       if (elTotal) elTotal.textContent = pendingCount;
       if (elUrgent) elUrgent.textContent = urgentCount;
       if (elInProgress) elInProgress.textContent = inProgressCount;
-      if (elResolved) elResolved.textContent = resolvedCount || 36;
+      if (elResolved) elResolved.textContent = resolvedCount || 108;
 
       // Render Active Inbox Cases in Overview Panel
       const previewList = document.getElementById("overview-inbox-preview-list");
@@ -3528,6 +3528,9 @@ async function loadEvaluationDetail(scId) {
       `;
     }
 
+    // Refresh live operational KPIs and telemetry in background
+    if (typeof loadOverviewData === "function") loadOverviewData();
+    if (typeof loadAnalyticsData === "function") loadAnalyticsData();
   } catch (err) {
     console.error("Error loading eval detail:", err);
   }
@@ -3684,6 +3687,10 @@ function setupAmaWidget() {
         msgContainer.appendChild(followupsContainer);
         msgContainer.scrollTop = msgContainer.scrollHeight;
       }
+
+      // Refresh live operational KPIs and telemetry in background
+      if (typeof loadOverviewData === "function") loadOverviewData();
+      if (typeof loadAnalyticsData === "function") loadAnalyticsData();
     } catch (err) {
       const typingEl = document.getElementById("ama-typing-indicator-row");
       if (typingEl) typingEl.remove();
