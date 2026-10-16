@@ -650,6 +650,7 @@ function setupDiscoveryCallouts() {
 
   let currentCalloutStep = null; // 1 = github, 2 = note
   let turnCounter = 0;
+  let hasTriggered = false;
 
   function positionCallout(targetEl) {
     if (!targetEl) return;
@@ -694,6 +695,9 @@ function setupDiscoveryCallouts() {
   }
 
   function showCallout1GitHub() {
+    try {
+      if (localStorage.getItem("paylane_callouts_completed") === "true") return;
+    } catch (_) {}
     if (!githubEl) return;
     const auth = document.getElementById("auth-overlay");
     if (auth && auth.classList.contains("active")) return;
@@ -713,6 +717,9 @@ function setupDiscoveryCallouts() {
   }
 
   function showCallout2ExecutiveNote() {
+    try {
+      if (localStorage.getItem("paylane_callouts_completed") === "true") return;
+    } catch (_) {}
     if (!noteEl) return;
     const auth = document.getElementById("auth-overlay");
     if (auth && auth.classList.contains("active")) return;
@@ -731,6 +738,20 @@ function setupDiscoveryCallouts() {
     requestAnimationFrame(() => callout.classList.add("active"));
   }
 
+  function dismissAllCalloutsPermanently() {
+    callout.classList.remove("active");
+    if (githubEl) githubEl.classList.remove("discovery-target-pulse");
+    if (noteEl) noteEl.classList.remove("discovery-target-pulse");
+    currentCalloutStep = null;
+    hasTriggered = true;
+    try {
+      localStorage.setItem("paylane_callouts_completed", "true");
+    } catch (_) {}
+    setTimeout(() => {
+      callout.style.display = "none";
+    }, 220);
+  }
+
   function closeCurrentCallout() {
     callout.classList.remove("active");
     if (githubEl) githubEl.classList.remove("discovery-target-pulse");
@@ -741,11 +762,9 @@ function setupDiscoveryCallouts() {
       if (currentCalloutStep === 1) {
         // After closing Callout 1, Callout 2 appears
         setTimeout(showCallout2ExecutiveNote, 350);
-      } else if (currentCalloutStep === 2) {
-        currentCalloutStep = null;
-        try {
-          localStorage.setItem("paylane_callouts_completed", "true");
-        } catch (_) {}
+      } else {
+        // Finished second step: mark permanently complete so it NEVER repeats
+        dismissAllCalloutsPermanently();
       }
     }, 220);
   }
@@ -763,12 +782,19 @@ function setupDiscoveryCallouts() {
     });
   }
 
-  // Clicking Executive Note button directly closes Callout 2
+  // Clicking Executive Note button directly closes Callout 2 permanently
   if (noteEl) {
     noteEl.addEventListener("click", () => {
-      if (currentCalloutStep === 2) closeCurrentCallout();
+      if (currentCalloutStep === 2) dismissAllCalloutsPermanently();
     });
   }
+
+  // Pressing Escape dismisses and completes permanently
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && callout.classList.contains("active")) {
+      dismissAllCalloutsPermanently();
+    }
+  });
 
   // Window resize repositions callout
   window.addEventListener("resize", () => {
@@ -777,21 +803,23 @@ function setupDiscoveryCallouts() {
     else if (currentCalloutStep === 2) positionCallout(noteEl);
   });
 
-  // Trigger from messages in widget or sandbox
+  // Trigger from messages in widget or sandbox: strictly only once
   window._notifyMessageTurnForDiscovery = () => {
     try {
-      if (localStorage.getItem("paylane_callouts_completed") === "true") return;
+      if (hasTriggered || localStorage.getItem("paylane_callouts_completed") === "true") return;
       turnCounter++;
       if (turnCounter >= 2 && currentCalloutStep === null) {
+        hasTriggered = true;
         setTimeout(showCallout1GitHub, 1200);
       }
     } catch (_) {}
   };
 
-  // Timer fallback trigger: 90 seconds
+  // Timer fallback trigger: 90 seconds (strictly only once)
   setTimeout(() => {
     try {
-      if (localStorage.getItem("paylane_callouts_completed") !== "true" && currentCalloutStep === null) {
+      if (!hasTriggered && localStorage.getItem("paylane_callouts_completed") !== "true" && currentCalloutStep === null) {
+        hasTriggered = true;
         showCallout1GitHub();
       }
     } catch (_) {}
