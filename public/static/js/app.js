@@ -917,6 +917,15 @@ function setupDiscoveryCallouts() {
 // App Initialization
 // ---------------------------------------------------------------------------
 async function init() {
+  // Synchronously restore model selections from localStorage to avoid any UI flicker on refresh
+  const savedPrimary = localStorage.getItem("paylane_primary_model");
+  const savedBackup = localStorage.getItem("paylane_backup_model");
+  const selModel = document.getElementById("param-model");
+  const selBackup = document.getElementById("param-backup-model");
+  if (savedPrimary && selModel) selModel.value = savedPrimary;
+  if (savedBackup && selBackup) selBackup.value = savedBackup;
+  updateTopbarModelBadge(savedPrimary || (selModel && selModel.value) || "gpt-4o-mini", savedBackup || (selBackup && selBackup.value) || "gemini-2.5-flash");
+
   setupThemeToggle();
   setupSupabaseAuth();
   setupSidebarProfile();

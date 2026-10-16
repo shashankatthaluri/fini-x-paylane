@@ -1490,7 +1490,7 @@ def get_agent_versions():
 
 
 class SaveDraftRequest(BaseModel):
-    instructions: str
+    instructions: Optional[str] = None
     model: str = "gpt-4o-mini"
     backup_model: Optional[str] = "gemini-2.5-flash"
     temperature: float = 0.0
@@ -1502,7 +1502,8 @@ class SaveDraftRequest(BaseModel):
 def save_agent_draft(req: SaveDraftRequest):
     """Save working draft of agent instructions and safety parameters."""
     from paylane_support_agent.policy import set_current_policy_parameters
-    ACTIVE_DRAFT["instructions"] = req.instructions
+    if req.instructions is not None:
+        ACTIVE_DRAFT["instructions"] = req.instructions
     ACTIVE_DRAFT["model"] = req.model
     if req.backup_model:
         ACTIVE_DRAFT["backup_model"] = req.backup_model
