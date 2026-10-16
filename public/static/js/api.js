@@ -37,11 +37,15 @@ export const api = {
     return res.json();
   },
 
-  async sendChatMessage(sessionId, message) {
+  async sendChatMessage(sessionId, message, model = null, backupModel = null) {
+    const payload = { message };
+    if (model) payload.model = model;
+    if (backupModel) payload.backup_model = backupModel;
+
     const res = await fetch(`${API_BASE}/api/sessions/${sessionId}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error("Chat request failed");
     return res.json();

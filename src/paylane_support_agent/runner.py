@@ -55,6 +55,8 @@ class AgentRunner:
         store: Optional[FixtureStore] = None,
         llm_client: Optional[Any] = None,
         model_name: str = "gpt-4o-mini",
+        backup_llm_client: Optional[Any] = None,
+        backup_model_name: Optional[str] = None,
         temperature: float = 0.0,
         system_prompt: Optional[str] = None,
     ) -> None:
@@ -62,9 +64,14 @@ class AgentRunner:
         self.store = store or FixtureStore()
         self.llm_client = llm_client
         self.model_name = model_name
+        self.backup_llm_client = backup_llm_client
+        self.backup_model_name = backup_model_name
         self.temperature = float(temperature)
         self.system_prompt = system_prompt or SYSTEM_PROMPT
         self.last_turn_usage: Dict[str, Any] = {"input_tokens": 0, "output_tokens": 0, "tool_called": "none"}
+        self.last_turn_model_used: str = model_name
+        self.last_turn_failover: bool = False
+        self.last_turn_failover_reason: Optional[str] = None
 
         # Initialize conversation messages if new
         if not self.session.messages:
@@ -113,13 +120,14 @@ class AgentRunner:
 
 
         # 2. Invoke LLM if client is provided, otherwise return mock/offline response
-        if not self.llm_client:
+        if not self.llm_client and not self.backup_llm_client:
             # Deterministic fallback response when offline
             reply = self._offline_handle_turn()
+            self.last_turn_model_used = "offline-rule-engine"
             self.session.messages.append({"role": "assistant", "content": reply})
             return reply
 
-        # Online LLM execution loop with function calling
+        # Online LLM execution loop with function calling and backup failover
         response_text = self._execute_llm_loop()
         return response_text
 
@@ -129,22 +137,60 @@ class AgentRunner:
         iteration = 0
 
         self.last_turn_usage = {"input_tokens": 0, "output_tokens": 0, "tool_called": "none"}
+        active_client = self.llm_client or self.backup_llm_client
+        active_model = self.model_name if self.llm_client else (self.backup_model_name or "gpt-4o-mini")
+        self.last_turn_model_used = active_model
+        self.last_turn_failover = bool(not self.llm_client and self.backup_llm_client)
+        self.last_turn_failover_reason = None
 
         while iteration < max_tool_iterations:
             iteration += 1
+            response = None
             try:
-                response = self.llm_client.chat.completions.create(
-                    model=self.model_name,
+                response = active_client.chat.completions.create(
+                    model=active_model,
                     messages=self.session.messages,
                     tools=PUBLIC_TOOLS_SCHEMA,
                     tool_choice="auto",
                     temperature=self.temperature,
                 )
             except Exception as e:
-                # Graceful fallback on OpenAI API exceptions (e.g. quota, rate limits, network timeouts)
-                fallback_msg = self._offline_handle_turn()
-                self.session.messages.append({"role": "assistant", "content": fallback_msg})
-                return fallback_msg
+                # Automatic Failover: Try backup provider if primary threw an exception (quota, timeout, rate limit)
+                if (
+                    self.backup_llm_client
+                    and self.backup_model_name
+                    and active_client != self.backup_llm_client
+                ):
+                    self.session.record_trace("model_failover_triggered", {
+                        "primary_model": active_model,
+                        "backup_model": self.backup_model_name,
+                        "error": str(e),
+                    })
+                    active_client = self.backup_llm_client
+                    active_model = self.backup_model_name
+                    self.last_turn_model_used = active_model
+                    self.last_turn_failover = True
+                    self.last_turn_failover_reason = str(e)[:160]
+
+                    try:
+                        response = active_client.chat.completions.create(
+                            model=active_model,
+                            messages=self.session.messages,
+                            tools=PUBLIC_TOOLS_SCHEMA,
+                            tool_choice="auto",
+                            temperature=self.temperature,
+                        )
+                    except Exception as e2:
+                        fallback_msg = self._offline_handle_turn()
+                        self.last_turn_model_used = "offline-rule-engine"
+                        self.session.messages.append({"role": "assistant", "content": fallback_msg})
+                        return fallback_msg
+                else:
+                    # Graceful fallback on API exceptions (e.g. quota, rate limits, network timeouts)
+                    fallback_msg = self._offline_handle_turn()
+                    self.last_turn_model_used = "offline-rule-engine"
+                    self.session.messages.append({"role": "assistant", "content": fallback_msg})
+                    return fallback_msg
 
             if hasattr(response, "usage") and response.usage:
                 self.last_turn_usage["input_tokens"] += getattr(response.usage, "prompt_tokens", 0) or 0

@@ -1302,6 +1302,29 @@ async function loadOverviewData() {
 }
 
 // ---------------------------------------------------------------------------
+function getSelectedModels() {
+  const selModel = document.getElementById("param-model");
+  const selBackup = document.getElementById("param-backup-model");
+  const storedPrimary = localStorage.getItem("paylane_primary_model");
+  const storedBackup = localStorage.getItem("paylane_backup_model");
+
+  const primary = (selModel && selModel.value) || storedPrimary || "gpt-4o-mini";
+  const backup = (selBackup && selBackup.value) || storedBackup || "gemini-2.5-flash";
+  return { primary, backup };
+}
+
+function updateTopbarModelBadge(primary, backup) {
+  const activeText = document.getElementById("topbar-active-model-text");
+  const backupText = document.getElementById("topbar-backup-model-text");
+  const badge = document.getElementById("topbar-model-badge");
+  if (activeText && primary) activeText.textContent = primary;
+  if (backupText && backup) backupText.textContent = backup;
+  if (badge) {
+    badge.title = `Primary Active: ${primary || 'gpt-4o-mini'} | Failover Backup: ${backup || 'gemini-2.5-flash'}`;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 2. Agent Studio
 // ---------------------------------------------------------------------------
 async function loadStudioData() {
@@ -1312,32 +1335,53 @@ async function loadStudioData() {
       textarea.value = res.draft.instructions || "";
     }
 
-    // Populate safety parameter inputs with active draft values
-    if (res.draft) {
-      const inputLimit = document.getElementById("param-refund-limit");
-      const inputAge = document.getElementById("param-refund-age");
-      const selModel = document.getElementById("param-model");
-      const selTemp = document.getElementById("param-temperature");
-      const summaryBanner = document.getElementById("studio-guardrail-summary");
+    // Populate safety parameter inputs with active draft values, prioritizing user localStorage
+    const inputLimit = document.getElementById("param-refund-limit");
+    const inputAge = document.getElementById("param-refund-age");
+    const selModel = document.getElementById("param-model");
+    const selBackup = document.getElementById("param-backup-model");
+    const selTemp = document.getElementById("param-temperature");
+    const summaryBanner = document.getElementById("studio-guardrail-summary");
 
-      if (inputLimit && res.draft.max_refund_limit !== undefined) {
-        inputLimit.value = res.draft.max_refund_limit;
-      }
-      if (inputAge && res.draft.max_refund_age_days !== undefined) {
-        inputAge.value = res.draft.max_refund_age_days;
-      }
-      if (selModel && res.draft.model) {
+    const savedPrimary = localStorage.getItem("paylane_primary_model");
+    const savedBackup = localStorage.getItem("paylane_backup_model");
+
+    if (inputLimit && res.draft?.max_refund_limit !== undefined) {
+      inputLimit.value = res.draft.max_refund_limit;
+    }
+    if (inputAge && res.draft?.max_refund_age_days !== undefined) {
+      inputAge.value = res.draft.max_refund_age_days;
+    }
+
+    if (selModel) {
+      if (savedPrimary) {
+        selModel.value = savedPrimary;
+      } else if (res.draft?.model) {
         selModel.value = res.draft.model;
+        localStorage.setItem("paylane_primary_model", res.draft.model);
       }
-      if (selTemp && res.draft.temperature !== undefined) {
-        const numTemp = parseFloat(res.draft.temperature);
-        selTemp.value = !isNaN(numTemp) ? numTemp.toFixed(1) : "0.0";
+    }
+
+    if (selBackup) {
+      if (savedBackup) {
+        selBackup.value = savedBackup;
+      } else if (res.draft?.backup_model) {
+        selBackup.value = res.draft.backup_model;
+        localStorage.setItem("paylane_backup_model", res.draft.backup_model);
       }
-      if (summaryBanner) {
-        const lim = inputLimit?.value || 75;
-        const age = inputAge?.value || 30;
-        summaryBanner.textContent = `Immutable Python Guardrails (≤ $${lim}, < ${age}d)`;
-      }
+    }
+
+    if (selTemp && res.draft?.temperature !== undefined) {
+      const numTemp = parseFloat(res.draft.temperature);
+      selTemp.value = !isNaN(numTemp) ? numTemp.toFixed(1) : "0.0";
+    }
+
+    updateTopbarModelBadge(selModel?.value || savedPrimary, selBackup?.value || savedBackup);
+
+    if (summaryBanner) {
+      const lim = inputLimit?.value || 75;
+      const age = inputAge?.value || 30;
+      summaryBanner.textContent = `Immutable Python Guardrails (≤ $${lim}, < ${age}d)`;
     }
 
     const versionList = document.getElementById("studio-version-list");
@@ -1354,7 +1398,7 @@ async function loadStudioData() {
         </div>
         <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">${v.notes}</div>
         <div style="font-size:10.5px;color:var(--text-dim);margin-top:2px;display:flex;justify-content:space-between;">
-          <span>Limit: $${v.max_refund_limit || 75} | Age: &lt; ${v.max_refund_age_days || 30}d</span>
+          <span>Limit: $${v.max_refund_limit || 75} | Age: &lt; ${v.max_refund_age_days || 30}d | ${v.model || 'gpt-4o-mini'}</span>
           <span>By: ${v.published_by}</span>
         </div>
       `;
@@ -1373,20 +1417,25 @@ function setupAgentStudio() {
   const inputLimit = document.getElementById("param-refund-limit");
   const inputAge = document.getElementById("param-refund-age");
   const selModel = document.getElementById("param-model");
+  const selBackup = document.getElementById("param-backup-model");
   const selTemp = document.getElementById("param-temperature");
   const summaryBanner = document.getElementById("studio-guardrail-summary");
 
   const saveCurrentDraft = async (silent = false) => {
     const payload = {
       instructions: textarea.value,
-      model: selModel?.value || "gpt-4o-mini",
+      model: selModel?.value || localStorage.getItem("paylane_primary_model") || "gpt-4o-mini",
+      backup_model: selBackup?.value || localStorage.getItem("paylane_backup_model") || "gemini-2.5-flash",
       temperature: parseFloat(selTemp?.value || "0.0"),
       max_refund_limit: parseFloat(inputLimit?.value || "75.0"),
       max_refund_age_days: parseInt(inputAge?.value || "30", 10),
     };
+    localStorage.setItem("paylane_primary_model", payload.model);
+    localStorage.setItem("paylane_backup_model", payload.backup_model);
+    updateTopbarModelBadge(payload.model, payload.backup_model);
     await api.saveAgentDraft(payload);
     if (!silent) {
-      showDeployToast(`Enforced: Limit $${payload.max_refund_limit} · Age < ${payload.max_refund_age_days}d · Temp ${payload.temperature}`);
+      showDeployToast(`Enforced: ${payload.model} (Backup: ${payload.backup_model}) · Limit $${payload.max_refund_limit} · Age < ${payload.max_refund_age_days}d`);
     }
   };
 
@@ -1405,7 +1454,7 @@ function setupAgentStudio() {
         btnApplyParams.textContent = "Applying...";
         await saveCurrentDraft();
         await loadStudioData();
-        btnApplyParams.textContent = "✓ Applied";
+        btnApplyParams.innerHTML = '<svg class="svg-icon" style="width:12px;height:12px;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Applied';
         setTimeout(() => {
           btnApplyParams.textContent = origText;
           btnApplyParams.disabled = false;
@@ -1426,6 +1475,16 @@ function setupAgentStudio() {
 
   if (selModel) {
     selModel.addEventListener("change", async () => {
+      localStorage.setItem("paylane_primary_model", selModel.value);
+      updateTopbarModelBadge(selModel.value, selBackup?.value);
+      await saveCurrentDraft(true);
+    });
+  }
+
+  if (selBackup) {
+    selBackup.addEventListener("change", async () => {
+      localStorage.setItem("paylane_backup_model", selBackup.value);
+      updateTopbarModelBadge(selModel?.value, selBackup.value);
       await saveCurrentDraft(true);
     });
   }
@@ -1485,13 +1544,16 @@ Paylane AI Systems & Safety Engineering (Deployment Bot)`;
     btnPublish.addEventListener("click", async () => {
       const limitVal = parseFloat(inputLimit?.value || "75.0");
       const ageVal = parseInt(inputAge?.value || "30", 10);
-      const modelVal = selModel?.value || "gpt-4o-mini";
+      const modelVal = selModel?.value || localStorage.getItem("paylane_primary_model") || "gpt-4o-mini";
+      const backupVal = selBackup?.value || localStorage.getItem("paylane_backup_model") || "gemini-2.5-flash";
       const tempVal = parseFloat(selTemp?.value || "0.0");
       const defaultNotes = `Updated policy limits ($${limitVal}, <${ageVal}d) & system instructions`;
 
+      const pubParamBackup = document.getElementById("pub-param-backup-model");
       if (pubParamLimit) pubParamLimit.textContent = `$${limitVal.toFixed(2)}`;
       if (pubParamAge) pubParamAge.textContent = `< ${ageVal} Days`;
       if (pubParamModel) pubParamModel.textContent = modelVal;
+      if (pubParamBackup) pubParamBackup.textContent = backupVal;
       if (pubParamTemp) pubParamTemp.textContent = `${tempVal.toFixed(1)} (${tempVal === 0 ? 'Deterministic' : 'Sampled'})`;
       if (pubReleaseNotes) pubReleaseNotes.value = defaultNotes;
       if (pubEmailContent) pubEmailContent.value = generateDynamicEmailContent(limitVal, ageVal, modelVal, tempVal, defaultNotes);
@@ -1518,7 +1580,8 @@ Paylane AI Systems & Safety Engineering (Deployment Bot)`;
 
         const limitVal = parseFloat(inputLimit?.value || "75.0");
         const ageVal = parseInt(inputAge?.value || "30", 10);
-        const modelVal = selModel?.value || "gpt-4o-mini";
+        const modelVal = selModel?.value || localStorage.getItem("paylane_primary_model") || "gpt-4o-mini";
+        const backupVal = selBackup?.value || localStorage.getItem("paylane_backup_model") || "gemini-2.5-flash";
         const tempVal = parseFloat(selTemp?.value || "0.0");
         const notes = (pubReleaseNotes?.value || "").trim() || `Updated policy limits ($${limitVal}, <${ageVal}d) & system instructions`;
 
@@ -1529,6 +1592,7 @@ Paylane AI Systems & Safety Engineering (Deployment Bot)`;
           max_refund_limit: limitVal,
           max_refund_age_days: ageVal,
           model: modelVal,
+          backup_model: backupVal,
           temperature: tempVal,
         });
 
@@ -1702,10 +1766,12 @@ Paylane AI Systems & Safety Engineering (Deployment Bot)`;
         simChecksList.innerHTML = data.checks
           .map((c) => {
             const pass = c.status === "PASS";
-            const icon = pass ? "✓" : "✗";
+            const iconSvg = pass
+              ? '<svg class="svg-icon" style="width:11px;height:11px;color:#10b981;margin-right:6px;display:inline-block;vertical-align:-1px;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>'
+              : '<svg class="svg-icon" style="width:11px;height:11px;color:#ef4444;margin-right:6px;display:inline-block;vertical-align:-1px;" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
             const color = pass ? "#10b981" : "#ef4444";
             return `<div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;">
-              <span style="color:${color};font-weight:700;margin-right:6px;">${icon} ${c.name}</span>
+              <span style="color:${color};font-weight:700;display:flex;align-items:center;">${iconSvg} ${c.name}</span>
               <span style="color:var(--text-secondary);font-size:10px;">${c.detail}</span>
             </div>`;
           })
@@ -2574,7 +2640,7 @@ function setupLivePreview() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        showDeployToast("✓ Downloaded cryptographically sealed SOC-2 Audit Pack.");
+        showDeployToast("Downloaded cryptographically sealed SOC-2 Audit Pack.");
       } catch (err) {
         showDeployToast("Export failed: " + err.message);
       }
@@ -2631,7 +2697,8 @@ async function handlePreviewSend() {
   msgs.scrollTop = msgs.scrollHeight;
 
   try {
-    const res = await api.sendChatMessage(state.previewSessionId, text);
+    const { primary, backup } = getSelectedModels();
+    const res = await api.sendChatMessage(state.previewSessionId, text, primary, backup);
 
     // Sequentially insert action steps before the agent message card
     const actionEvents = (res.all_events || []).filter(e => e.event_type === "tool_execution" || e.event_type === "policy_gate_passed");
@@ -2643,7 +2710,7 @@ async function handlePreviewSend() {
       pill.className = "between-turns-action-pill";
       pill.innerHTML = `
         <div class="action-pill-header">
-          <span class="action-pill-title"><svg class="svg-icon" style="width:11px;height:11px;color:#10b981;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>TRUSTED RUNTIME GATE: ${toolName.toUpperCase()}</span>
+          <span class="action-pill-title"><svg class="svg-icon" style="width:12px;height:12px;color:#10b981;display:inline-block;vertical-align:-1px;margin-right:5px;" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>TRUSTED RUNTIME GATE: ${toolName.toUpperCase()}</span>
           <span class="action-pill-badge ${isOk ? 'pill-approved' : 'pill-unverified'}">${isOk ? 'VERIFIED' : 'GATE BLOCKED'}</span>
         </div>
         <div class="action-pill-details">Executed step verified by trusted Python backend: <code>${toolName}()</code>.</div>
@@ -2656,6 +2723,16 @@ async function handlePreviewSend() {
     // Now continuously stream typing directly inside the waiting message card
     const turnTextEl = agentCard.querySelector(".turn-text");
     streamTextTypewriter(turnTextEl, res.agent_response, msgs, () => {
+      // Append model provenance badge
+      if (res.provider_display) {
+        const provEl = document.createElement("div");
+        provEl.className = "agent-provenance-tag";
+        provEl.style.cssText = "font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-top:6px;display:flex;align-items:center;gap:5px;";
+        const failoverNote = res.failover_occurred ? ` <span style="color:#f59e0b;font-weight:600;">(failover route)</span>` : "";
+        provEl.innerHTML = `<svg class="svg-icon" style="width:11px;height:11px;color:var(--text-muted);" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg><span>${res.provider_display}</span>${failoverNote}<span>&middot;</span><span>${res.execution_time_ms || 240}ms</span>`;
+        agentCard.appendChild(provEl);
+      }
+
       // Attach one-click calendar/slot selector or action confirm card if relevant
       attachInteractiveCards(agentCard, res, (selectedText) => {
         const previewInput = document.getElementById("preview-input");
@@ -2695,15 +2772,32 @@ function updatePreviewInspector(data) {
   const email = document.getElementById("prev-customer-email");
   const txnCtx = document.getElementById("prev-txn-context");
   const traceList = document.getElementById("prev-trace-list");
+  const activeModelName = document.getElementById("prev-active-model-name");
+  const backupModelName = document.getElementById("prev-backup-model-name");
+  const latencyEl = document.getElementById("prev-model-latency");
+  const failoverPill = document.getElementById("prev-failover-pill");
+
+  if (activeModelName && data.model_used) {
+    activeModelName.textContent = data.provider_display || data.model_used;
+  }
+  if (backupModelName && data.backup_model) {
+    backupModelName.textContent = data.backup_model;
+  }
+  if (latencyEl && data.execution_time_ms) {
+    latencyEl.textContent = `${data.execution_time_ms}ms`;
+  }
+  if (failoverPill) {
+    failoverPill.style.display = data.failover_occurred ? "inline-flex" : "none";
+  }
 
   if (data.session_state?.verified) {
     badge.className = "pill-approved";
-    badge.textContent = "● Identity Verified";
+    badge.innerHTML = `<svg class="svg-icon" style="width:10px;height:10px;margin-right:4px;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Identity Verified`;
     name.textContent = data.session_state.customer_name || "Sarah Chen";
     email.textContent = data.session_state.customer_email || "sarah.chen@example.com";
   } else {
     badge.className = "pill-unverified";
-    badge.textContent = "○ Verification Pending";
+    badge.innerHTML = `<svg class="svg-icon" style="width:10px;height:10px;margin-right:4px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>Verification Pending`;
   }
 
   if (data.active_transaction) {
@@ -2777,7 +2871,7 @@ function attachInteractiveCards(containerCard, responseData, onActionSelect) {
 
       <!-- Time Slots Grid -->
       <div class="slot-times-grid">
-        <button type="button" class="slot-time-btn now-slot" data-slot="Connect Now (Urgent Priority)"><svg class="svg-icon" style="width:11px;height:11px;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Connect with Specialist Now</button>
+        <button type="button" class="slot-time-btn now-slot" data-slot="Connect Now (Urgent Priority)"><svg class="svg-icon" style="width:13px;height:13px;display:inline-block;vertical-align:-1px;margin-right:6px;" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>Connect with Specialist Now</button>
         ${times.map(t => `
           <button type="button" class="slot-time-btn" data-time="${t}">${t}</button>
         `).join("")}
@@ -2819,7 +2913,7 @@ function attachInteractiveCards(containerCard, responseData, onActionSelect) {
     confirmCard.className = "chat-action-confirm-card";
     confirmCard.innerHTML = `
       <div class="chat-action-confirm-header">
-        <span style="color:#10b981;display:flex;align-items:center;gap:5px;"><svg class="svg-icon" style="width:12px;height:12px;color:#10b981;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>One-Click Confirmation</span>
+        <span style="color:#10b981;display:flex;align-items:center;gap:5px;"><svg class="svg-icon" style="width:12px;height:12px;color:#10b981;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>One-Click Confirmation</span>
       </div>
       <div class="chat-action-confirm-desc">Ready to proceed with this verified transaction action?</div>
       <div class="chat-action-confirm-buttons">
@@ -2932,7 +3026,7 @@ function createSlotPickerElement(promptMessage, onSlotChosen) {
 
     <!-- Time Slots Grid -->
     <div class="slot-times-grid">
-      <button type="button" class="slot-time-btn now-slot" data-slot="Connect Now (Urgent Priority)"><svg class="svg-icon" style="width:11px;height:11px;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Connect with Specialist Now</button>
+      <button type="button" class="slot-time-btn now-slot" data-slot="Connect Now (Urgent Priority)"><svg class="svg-icon" style="width:13px;height:13px;display:inline-block;vertical-align:-1px;margin-right:6px;" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>Connect with Specialist Now</button>
       ${times.map(t => `
         <button type="button" class="slot-time-btn" data-time="${t}">${t}</button>
       `).join("")}
@@ -3506,7 +3600,8 @@ async function handleWidgetSend() {
   msgs.scrollTop = msgs.scrollHeight;
 
   try {
-    const res = await api.sendChatMessage(state.widgetSessionId, text);
+    const { primary, backup } = getSelectedModels();
+    const res = await api.sendChatMessage(state.widgetSessionId, text, primary, backup);
 
     // Display step-by-step actions before the agent card in customer widget
     const actionEvents = (res.all_events || []).filter(e => e.event_type === "tool_execution" || e.event_type === "policy_gate_passed");
@@ -3527,6 +3622,16 @@ async function handleWidgetSend() {
 
     const turnTextEl = agentCard.querySelector(".turn-text");
     streamTextTypewriter(turnTextEl, res.agent_response, msgs, () => {
+      // Append model provenance badge
+      if (res.provider_display) {
+        const provEl = document.createElement("div");
+        provEl.className = "agent-provenance-tag";
+        provEl.style.cssText = "font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-top:6px;display:flex;align-items:center;gap:5px;";
+        const failoverNote = res.failover_occurred ? ` <span style="color:#f59e0b;font-weight:600;">(failover route)</span>` : "";
+        provEl.innerHTML = `<svg class="svg-icon" style="width:11px;height:11px;color:var(--text-muted);" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg><span>${res.provider_display}</span>${failoverNote}<span>&middot;</span><span>${res.execution_time_ms || 240}ms</span>`;
+        agentCard.appendChild(provEl);
+      }
+
       // Attach one-click calendar/slot selector or action confirm card inside Widget
       attachInteractiveCards(agentCard, res, (selectedText) => {
         const widgetInput = document.getElementById("widget-input");
@@ -3589,7 +3694,7 @@ function renderEvaluationScenariosList() {
           <span class="scenario-num">${numStr}</span>
           <span class="scenario-nav-name">${sc.id.replace(/^SC-\d+-/, "").replace(/-/g, " ")}</span>
         </div>
-        <div class="scenario-pass-icon">✓</div>
+        <div class="scenario-pass-icon"><svg class="svg-icon" style="width:10px;height:10px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
       `;
       row.addEventListener("click", () => {
         state.selectedScenarioId = sc.id;
@@ -3737,7 +3842,7 @@ async function loadEvaluationDetail(scId, precomputedDetail = null) {
         if (toolsCalled.length > 0) {
           pill.innerHTML = `
             <div class="action-pill-header">
-              <span class="action-pill-title"><svg class="svg-icon" style="width:11px;height:11px;color:#10b981;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>TRUSTED PRE-CALL GATE: APPROVED & EXECUTED</span>
+              <span class="action-pill-title"><svg class="svg-icon" style="width:12px;height:12px;color:#10b981;display:inline-block;vertical-align:-1px;margin-right:5px;" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>TRUSTED PRE-CALL GATE: APPROVED & EXECUTED</span>
               <span class="action-pill-badge pill-approved">VERIFIED</span>
             </div>
             <div class="action-pill-details">Executed tool(s): <span style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary);">${toolsCalled.map(t => `${t}()`).join(", ")}</span></div>
@@ -3825,7 +3930,7 @@ async function loadEvaluationDetail(scId, precomputedDetail = null) {
             badgeText = "Pre-Call Gate: BLOCKED";
             detailText = ev.details?.message || ev.details?.reason || "Policy invariant violated";
           } else if (ev.event_type === "tool_execution") {
-            icon = '<svg class="svg-icon" style="width:12px;height:12px;color:#10b981;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+            icon = '<svg class="svg-icon" style="width:12px;height:12px;color:#10b981;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>';
             badgeText = `Executed: ${ev.details?.tool}()`;
             const resDetails = ev.details?.result || {};
             detailText = resDetails.refund_id ? `refund_id: ${resDetails.refund_id}` : (resDetails.ticket_id ? `ticket_id: ${resDetails.ticket_id}` : JSON.stringify(resDetails));
@@ -4028,7 +4133,7 @@ function setupAmaWidget() {
 
           const header = document.createElement("div");
           header.className = "ama-suggestions-header";
-          header.innerHTML = `<svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>SUGGESTED FOLLOW-UPS</span>`;
+          header.innerHTML = `<svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>SUGGESTED FOLLOW-UPS</span>`;
           followupsContainer.appendChild(header);
 
           const list = document.createElement("div");
@@ -4038,7 +4143,7 @@ function setupAmaWidget() {
             const btn = document.createElement("button");
             btn.type = "button";
             btn.className = "ama-suggestion-pill";
-            btn.innerHTML = `<span class="pill-arrow">↳</span><span>${f}</span>`;
+            btn.innerHTML = `<svg class="svg-icon" style="width:10px;height:10px;color:#c084fc;margin-right:4px;display:inline-block;vertical-align:-1px;" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg><span>${f}</span>`;
             btn.onclick = () => {
               if (window.sendAmaPrompt) window.sendAmaPrompt(f);
             };

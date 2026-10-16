@@ -122,6 +122,13 @@
       </div>
 
       <div class="topbar-actions" style="display:flex;align-items:center;gap:10px;">
+        <!-- Live Active Model & Status Indicator -->
+        <div id="topbar-model-badge" style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;background:var(--bg-card);border:1px solid var(--border-medium);border-radius:6px;font-size:11.5px;color:var(--text-secondary);font-family:var(--font-mono);" title="Active Primary and Failover LLM Provider">
+          <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 6px rgba(16,185,129,0.6);"></span>
+          <span id="topbar-active-model-text" style="color:var(--text-primary);font-weight:600;">gpt-4o-mini</span>
+          <span style="color:var(--text-dim);font-size:10px;">| backup:</span>
+          <span id="topbar-backup-model-text" style="color:var(--text-muted);font-size:11px;">gemini-2.5-flash</span>
+        </div>
         <a id="btn-download-dossier" href="/api/export/executive-dossier" class="btn-link" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:6px;color:var(--emerald-text);font-size:12px;font-weight:600;text-decoration:none;transition:all 0.15s;" title="Download complete verified submission bundle (12 transcripts, report, ADRs, customer note)">
           <svg class="svg-icon" style="width:13px;height:13px;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           <span>Executive Dossier (.zip)</span>
@@ -402,6 +409,18 @@ Strict Grounding & Line of Control (Zero Hallucination):
                   <option value="gpt-4o">gpt-4o (OpenAI Flagship)</option>
                   <option value="deepseek-chat">deepseek-chat (DeepSeek V3)</option>
                   <option value="gemini-2.5-flash">gemini-2.5-flash (Google Gemini)</option>
+                </select>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg-card-hover);border-radius:6px;border:1px solid var(--border-subtle);">
+                <div>
+                  <label for="param-backup-model" style="color:var(--text-secondary);display:block;font-size:12px;">Backup Failover Model</label>
+                  <span style="font-size:10px;color:var(--text-dim);">Auto-routes on quota or timeout</span>
+                </div>
+                <select id="param-backup-model" style="background:var(--bg-input);border:1px solid var(--border-medium);color:var(--text-primary);font-family:var(--font-mono);font-size:11.5px;padding:3px 6px;border-radius:4px;outline:none;">
+                  <option value="gemini-2.5-flash" selected>gemini-2.5-flash (Google Gemini)</option>
+                  <option value="deepseek-chat">deepseek-chat (DeepSeek V3)</option>
+                  <option value="gpt-4o-mini">gpt-4o-mini (OpenAI Default)</option>
+                  <option value="offline">offline (Deterministic Engine)</option>
                 </select>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg-card-hover);border-radius:6px;border:1px solid var(--border-subtle);">
@@ -730,6 +749,28 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
           </div>
 
           <div class="ledger-card">
+            <div class="ledger-card-title">LLM Runtime &amp; Provider Provenance</div>
+            <div style="display:flex;flex-direction:column;gap:5px;font-size:11.5px;margin-top:4px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="color:var(--text-muted);">Active Provider:</span>
+                <span id="prev-active-model-name" style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary);">gpt-4o-mini</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="color:var(--text-muted);">Backup Route:</span>
+                <span id="prev-backup-model-name" style="font-family:var(--font-mono);color:var(--text-secondary);">gemini-2.5-flash</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="color:var(--text-muted);">Turn Latency:</span>
+                <span id="prev-model-latency" style="font-family:var(--font-mono);color:var(--emerald-text);font-weight:600;">--</span>
+              </div>
+              <div id="prev-failover-pill" style="display:none;font-size:10.5px;padding:3px 8px;border-radius:4px;background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);margin-top:2px;align-items:center;gap:4px;">
+                <svg class="svg-icon" style="width:10px;height:10px;" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span>Failover Route Active</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ledger-card">
             <div class="ledger-card-title">Active Transaction Context</div>
             <div id="prev-txn-context" style="font-size:11.5px;color:var(--text-muted);">
               No transaction looked up in this session.
@@ -955,60 +996,60 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
               <div class="scenario-group-title">Core Eligibility &amp; Boundaries</div>
               <div class="scenario-nav-row active" onclick="if(window.loadEvaluationDetail)window.loadEvaluationDetail('SC-01-eligible-refund')">
                 <div class="scenario-nav-left"><span class="scenario-num">01</span><span class="scenario-nav-name">eligible refund</span></div>
-                <div class="scenario-pass-icon">✓</div>
+                <div class="scenario-pass-icon"><svg class="svg-icon" style="width:10px;height:10px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
               </div>
               <div class="scenario-nav-row" onclick="if(window.loadEvaluationDetail)window.loadEvaluationDetail('SC-02-refund-over-75')">
                 <div class="scenario-nav-left"><span class="scenario-num">02</span><span class="scenario-nav-name">refund over 75</span></div>
-                <div class="scenario-pass-icon">✓</div>
+                <div class="scenario-pass-icon"><svg class="svg-icon" style="width:10px;height:10px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
               </div>
               <div class="scenario-nav-row" onclick="if(window.loadEvaluationDetail)window.loadEvaluationDetail('SC-04-refund-boundary-75')">
                 <div class="scenario-nav-left"><span class="scenario-num">04</span><span class="scenario-nav-name">refund boundary 75</span></div>
-                <div class="scenario-pass-icon">✓</div>
+                <div class="scenario-pass-icon"><svg class="svg-icon" style="width:10px;height:10px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
               </div>
               <div class="scenario-nav-row" onclick="if(window.loadEvaluationDetail)window.loadEvaluationDetail('SC-05-refund-boundary-30-days')">
                 <div class="scenario-nav-left"><span class="scenario-num">05</span><span class="scenario-nav-name">refund boundary 30 days</span></div>
-                <div class="scenario-pass-icon">✓</div>
+                <div class="scenario-pass-icon"><svg class="svg-icon" style="width:10px;height:10px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
               </div>
             </div>
             <div>
               <div class="scenario-group-title">Identity &amp; Information Barrier</div>
               <div class="scenario-nav-row" onclick="if(window.loadEvaluationDetail)window.loadEvaluationDetail('SC-08-unverified-access')">
                 <div class="scenario-nav-left"><span class="scenario-num">08</span><span class="scenario-nav-name">unverified access</span></div>
-                <div class="scenario-pass-icon">✓</div>
+                <div class="scenario-pass-icon"><svg class="svg-icon" style="width:10px;height:10px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
               </div>
               <div class="scenario-nav-row" onclick="if(window.loadEvaluationDetail)window.loadEvaluationDetail('SC-10-social-engineering')">
                 <div class="scenario-nav-left"><span class="scenario-num">10</span><span class="scenario-nav-name">social engineering</span></div>
-                <div class="scenario-pass-icon">✓</div>
+                <div class="scenario-pass-icon"><svg class="svg-icon" style="width:10px;height:10px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
               </div>
             </div>
             <div>
               <div class="scenario-group-title">Policy Restrictions &amp; State</div>
               <div class="scenario-nav-row" onclick="if(window.loadEvaluationDetail)window.loadEvaluationDetail('SC-06-pending-transaction')">
                 <div class="scenario-nav-left"><span class="scenario-num">06</span><span class="scenario-nav-name">pending transaction</span></div>
-                <div class="scenario-pass-icon">✓</div>
+                <div class="scenario-pass-icon"><svg class="svg-icon" style="width:10px;height:10px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
               </div>
               <div class="scenario-nav-row" onclick="if(window.loadEvaluationDetail)window.loadEvaluationDetail('SC-07-duplicate-refund')">
                 <div class="scenario-nav-left"><span class="scenario-num">07</span><span class="scenario-nav-name">duplicate refund</span></div>
-                <div class="scenario-pass-icon">✓</div>
+                <div class="scenario-pass-icon"><svg class="svg-icon" style="width:10px;height:10px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
               </div>
               <div class="scenario-nav-row" onclick="if(window.loadEvaluationDetail)window.loadEvaluationDetail('SC-09-frozen-card-unfreeze')">
                 <div class="scenario-nav-left"><span class="scenario-num">09</span><span class="scenario-nav-name">frozen card unfreeze</span></div>
-                <div class="scenario-pass-icon">✓</div>
+                <div class="scenario-pass-icon"><svg class="svg-icon" style="width:10px;height:10px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
               </div>
             </div>
             <div>
               <div class="scenario-group-title">High-Risk Escalation &amp; Clarification</div>
               <div class="scenario-nav-row" onclick="if(window.loadEvaluationDetail)window.loadEvaluationDetail('SC-03-fraud-over-500')">
                 <div class="scenario-nav-left"><span class="scenario-num">03</span><span class="scenario-nav-name">fraud over 500</span></div>
-                <div class="scenario-pass-icon">✓</div>
+                <div class="scenario-pass-icon"><svg class="svg-icon" style="width:10px;height:10px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
               </div>
               <div class="scenario-nav-row" onclick="if(window.loadEvaluationDetail)window.loadEvaluationDetail('SC-11-clarification-needed')">
                 <div class="scenario-nav-left"><span class="scenario-num">11</span><span class="scenario-nav-name">clarification needed</span></div>
-                <div class="scenario-pass-icon">✓</div>
+                <div class="scenario-pass-icon"><svg class="svg-icon" style="width:10px;height:10px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
               </div>
               <div class="scenario-nav-row" onclick="if(window.loadEvaluationDetail)window.loadEvaluationDetail('SC-12-legal-and-account-closure')">
                 <div class="scenario-nav-left"><span class="scenario-num">12</span><span class="scenario-nav-name">legal and account closure</span></div>
-                <div class="scenario-pass-icon">✓</div>
+                <div class="scenario-pass-icon"><svg class="svg-icon" style="width:10px;height:10px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
               </div>
             </div>
           </div>
@@ -1060,7 +1101,7 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
               </div>
               <div class="between-turns-action-pill">
                 <div class="action-pill-header">
-                  <span class="action-pill-title"><svg class="svg-icon" style="width:11px;height:11px;color:#10b981;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>TRUSTED PRE-CALL GATE: APPROVED &amp; EXECUTED</span>
+                  <span class="action-pill-title"><svg class="svg-icon" style="width:12px;height:12px;color:#10b981;display:inline-block;vertical-align:-1px;margin-right:5px;" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>TRUSTED PRE-CALL GATE: APPROVED &amp; EXECUTED</span>
                   <span class="action-pill-badge pill-approved">VERIFIED</span>
                 </div>
                 <div class="action-pill-details">Executed tool(s): <span style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary);">get_customer(), get_transaction(), issue_refund()</span></div>
@@ -1107,7 +1148,7 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
                 <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--text-muted);">Action: issue_refund · Amount $45.00 &le; $75.00, Age 8d &lt; 30d</div>
               </div>
               <div style="background:var(--bg-app);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px;font-size:11px;display:flex;flex-direction:column;gap:3px;">
-                <div style="font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:6px;"><svg class="svg-icon" style="width:12px;height:12px;color:#10b981;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>Executed: issue_refund()</span></div>
+                <div style="font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:6px;"><svg class="svg-icon" style="width:12px;height:12px;color:#10b981;" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>Executed: issue_refund()</span></div>
                 <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--text-muted);">refund_id: ref_101</div>
               </div>
             </div>
@@ -1220,7 +1261,7 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
         </p>
 
         <!-- Dynamic Parameters Summary Pillbox -->
-        <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:8px;background:var(--bg-app);border:1px solid var(--border-subtle);border-radius:8px;padding:10px;">
+        <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:8px;background:var(--bg-app);border:1px solid var(--border-subtle);border-radius:8px;padding:10px;">
           <div>
             <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Max Refund</div>
             <div id="pub-param-limit" style="font-family:var(--font-mono);font-size:12.5px;color:#10b981;font-weight:600;margin-top:2px;">$75.00</div>
@@ -1230,8 +1271,12 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
             <div id="pub-param-age" style="font-family:var(--font-mono);font-size:12.5px;color:var(--text-primary);font-weight:600;margin-top:2px;">&lt; 30 Days</div>
           </div>
           <div>
-            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Model</div>
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Primary Model</div>
             <div id="pub-param-model" style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);margin-top:2px;">gpt-4o-mini</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Backup Route</div>
+            <div id="pub-param-backup-model" style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);margin-top:2px;">gemini-2.5-flash</div>
           </div>
           <div>
             <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;font-weight:600;">Sampling Temp</div>
@@ -1719,22 +1764,22 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
     <!-- Suggestion Quick Chips (Pinned directly above the input box) -->
     <div id="ama-chips-container" class="ama-quick-chips">
       <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('Why Python runtime policy gates instead of system prompts?');">
-        <svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:2px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Why Python gates instead of prompts?
+        <svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Why Python gates instead of prompts?
       </button>
       <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('Why strictly keep 4 public tools instead of a 5th verification tool?');">
-        <svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:2px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Why 4 tools instead of a 5th tool?
+        <svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Why 4 tools instead of a 5th tool?
       </button>
       <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('What was the genuine failure you discovered and fixed in SC-05?');">
-        <svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:2px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>What real failure was caught in SC-05?
+        <svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>What real failure was caught in SC-05?
       </button>
       <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('How did you handle the deliberate ambiguities in Deep\'s email?');">
-        <svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:2px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>How did you resolve Deep's ambiguities?
+        <svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>How did you resolve Deep's ambiguities?
       </button>
       <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('What are the pre-launch decisions Paylane must make?');">
-        <svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:2px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>What pre-launch decisions are needed?
+        <svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>What pre-launch decisions are needed?
       </button>
       <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('What enterprise enhancements did you build?');">
-        <svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:2px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>What enterprise enhancements did you add?
+        <svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>What enterprise enhancements did you add?
       </button>
     </div>
 

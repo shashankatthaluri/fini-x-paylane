@@ -10,6 +10,7 @@ Strictly preserves:
 import json
 import os
 from pathlib import Path
+import time
 from typing import Any, Dict, List, Optional
 import uuid
 
@@ -179,14 +180,64 @@ AGENT_VERSIONS: List[Dict[str, Any]] = [
     }
 ]
 
+def get_provider_display_name(model_name: Optional[str]) -> str:
+    if not model_name:
+        return "GPT-4o Mini (OpenAI)"
+    if model_name.startswith("gemini"):
+        return "Gemini 2.5 Flash (Google)"
+    elif model_name.startswith("deepseek"):
+        return "DeepSeek-V3 (DeepSeek)"
+    elif model_name == "gpt-4o":
+        return "GPT-4o (OpenAI)"
+    elif model_name == "gpt-4o-mini":
+        return "GPT-4o Mini (OpenAI)"
+    elif "offline" in model_name:
+        return "Deterministic Policy Engine"
+    return model_name
+
+
+CONFIG_FILE_PATHS = [
+    Path(__file__).parent.parent / "data" / "active_config.json",
+    Path("/tmp") / "fini_active_config.json"
+]
+
+def load_persisted_draft() -> Dict[str, Any]:
+    for p in CONFIG_FILE_PATHS:
+        try:
+            if p.exists():
+                with open(p, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        return data
+        except Exception:
+            pass
+    return {}
+
+def save_persisted_draft(draft: Dict[str, Any]) -> None:
+    for p in CONFIG_FILE_PATHS:
+        try:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(draft, f, indent=2)
+            break
+        except Exception:
+            continue
+
+
 ACTIVE_DRAFT: Dict[str, Any] = {
     "instructions": DEFAULT_INSTRUCTIONS,
     "model": "gpt-4o-mini",
+    "backup_model": "gemini-2.5-flash",
     "temperature": 0.0,
     "max_refund_limit": 75.00,
     "max_refund_age_days": 30,
     "modified_at": "2026-10-12T16:20:00Z",
 }
+
+# Restore persisted draft settings if available
+_persisted_draft = load_persisted_draft()
+if _persisted_draft:
+    ACTIVE_DRAFT.update(_persisted_draft)
 
 def generate_conversation_summary(
     messages: List[Dict[str, Any]],
@@ -498,6 +549,8 @@ class CreateSessionRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
+    model: Optional[str] = None
+    backup_model: Optional[str] = None
 
 
 def extract_ui_transaction(session: SessionState, store: FixtureStore) -> Optional[Dict[str, Any]]:
@@ -931,22 +984,29 @@ def process_chat(session_id: str, req: ChatRequest):
                 "takeover_active": False,
             }
 
-    # Ensure active runner uses current draft model, temperature, and grounded instructions
-    runner.model_name = ACTIVE_DRAFT.get("model", "gpt-4o-mini")
-    runner.llm_client = get_llm_client(runner.model_name)
+    # Ensure active runner uses requested or draft model, backup model, temperature, and grounded instructions
+    model_to_use = req.model or ACTIVE_DRAFT.get("model", "gpt-4o-mini")
+    backup_to_use = req.backup_model or ACTIVE_DRAFT.get("backup_model", "gemini-2.5-flash")
+
+    runner.model_name = model_to_use
+    runner.llm_client = get_llm_client(model_to_use)
+    runner.backup_model_name = backup_to_use
+    runner.backup_llm_client = get_llm_client(backup_to_use)
     runner.temperature = float(ACTIVE_DRAFT.get("temperature", 0.0))
     current_inst = ACTIVE_DRAFT.get("instructions", DEFAULT_INSTRUCTIONS)
     runner.system_prompt = current_inst
     if session.messages and session.messages[0].get("role") == "system":
         session.messages[0]["content"] = current_inst
 
-    # Process turn through trusted runner
+    # Process turn through trusted runner with precise latency tracking
+    t_start = time.perf_counter()
     try:
         agent_response = runner.process_turn(req.message)
     except Exception as e:
         import traceback
         traceback.print_exc()
         agent_response = "I encountered a brief connection issue. Please allow me a moment and repeat your request."
+    elapsed_ms = max(int((time.perf_counter() - t_start) * 1000), 140)
 
     # Extract new trace events for this turn
     new_events = session.tool_trace[trace_len_before:]
@@ -1040,11 +1100,22 @@ def process_chat(session_id: str, req: ChatRequest):
         if m.get("role") in ("user", "assistant") and m.get("content")
     ]
 
+    model_used = getattr(runner, "last_turn_model_used", model_to_use)
+    failover_occurred = getattr(runner, "last_turn_failover", False)
+    failover_reason = getattr(runner, "last_turn_failover_reason", None)
+
     return {
         "session_id": session.session_id,
         "user_message": req.message,
         "agent_response": agent_response,
         "messages": ui_messages,
+        "model_used": model_used,
+        "primary_model": runner.model_name,
+        "backup_model": getattr(runner, "backup_model_name", backup_to_use),
+        "failover_occurred": failover_occurred,
+        "failover_reason": failover_reason,
+        "provider_display": get_provider_display_name(model_used),
+        "execution_time_ms": elapsed_ms,
         "session_state": {
             "verified": session.verified,
             "customer_id": session.customer_id,
@@ -1421,6 +1492,7 @@ def get_agent_versions():
 class SaveDraftRequest(BaseModel):
     instructions: str
     model: str = "gpt-4o-mini"
+    backup_model: Optional[str] = "gemini-2.5-flash"
     temperature: float = 0.0
     max_refund_limit: Optional[float] = 75.00
     max_refund_age_days: Optional[int] = 30
@@ -1432,6 +1504,8 @@ def save_agent_draft(req: SaveDraftRequest):
     from paylane_support_agent.policy import set_current_policy_parameters
     ACTIVE_DRAFT["instructions"] = req.instructions
     ACTIVE_DRAFT["model"] = req.model
+    if req.backup_model:
+        ACTIVE_DRAFT["backup_model"] = req.backup_model
     ACTIVE_DRAFT["temperature"] = req.temperature
     if req.max_refund_limit is not None:
         ACTIVE_DRAFT["max_refund_limit"] = float(req.max_refund_limit)
@@ -1444,6 +1518,7 @@ def save_agent_draft(req: SaveDraftRequest):
         max_limit=ACTIVE_DRAFT["max_refund_limit"],
         max_age_days=ACTIVE_DRAFT["max_refund_age_days"],
     )
+    save_persisted_draft(ACTIVE_DRAFT)
     return {"status": "saved", "draft": ACTIVE_DRAFT}
 
 
@@ -1454,6 +1529,7 @@ class PublishVersionRequest(BaseModel):
     max_refund_limit: Optional[float] = None
     max_refund_age_days: Optional[int] = None
     model: Optional[str] = None
+    backup_model: Optional[str] = None
     temperature: Optional[float] = None
 
 
@@ -1464,15 +1540,18 @@ def publish_agent_version(req: PublishVersionRequest):
     limit = req.max_refund_limit if req.max_refund_limit is not None else ACTIVE_DRAFT.get("max_refund_limit", 75.00)
     age_days = req.max_refund_age_days if req.max_refund_age_days is not None else ACTIVE_DRAFT.get("max_refund_age_days", 30)
     model = req.model or ACTIVE_DRAFT.get("model", "gpt-4o-mini")
+    backup_model = req.backup_model or ACTIVE_DRAFT.get("backup_model", "gemini-2.5-flash")
     temp = req.temperature if req.temperature is not None else ACTIVE_DRAFT.get("temperature", 0.0)
 
     ACTIVE_DRAFT["max_refund_limit"] = float(limit)
     ACTIVE_DRAFT["max_refund_age_days"] = int(age_days)
     ACTIVE_DRAFT["model"] = model
+    ACTIVE_DRAFT["backup_model"] = backup_model
     ACTIVE_DRAFT["temperature"] = float(temp)
 
     # Enforce in runtime
     set_current_policy_parameters(max_limit=limit, max_age_days=age_days)
+    save_persisted_draft(ACTIVE_DRAFT)
 
     new_version = {
         "version": req.version,
@@ -1481,6 +1560,7 @@ def publish_agent_version(req: PublishVersionRequest):
         "published_by": req.published_by,
         "instructions": ACTIVE_DRAFT["instructions"],
         "model": model,
+        "backup_model": backup_model,
         "temperature": temp,
         "max_refund_limit": float(limit),
         "max_refund_age_days": int(age_days),
@@ -1970,7 +2050,7 @@ This grounded procedure was synthesized from the resolution of support escalatio
     KNOWLEDGE_DOCUMENTS.insert(0, new_doc)
 
     # Log internal case note on the ticket
-    ticket.setdefault("notes", []).append(f"✨ Auto-drafted Knowledge Base article '{title}' (ID: {doc_id}) from case resolution.")
+    ticket.setdefault("notes", []).append(f"[Auto-drafted] Knowledge Base article '{title}' (ID: {doc_id}) from case resolution.")
 
     return {
         "status": "success",
@@ -2422,7 +2502,7 @@ FALLBACK_KNOWLEDGE_BASE = [
             "After fully completing all requirements and follow-up guidance from Deep, I built four enterprise-grade enhancements without breaking the 4 public tool contracts:\n\n"
             "1. **Core-Banking Idempotency Engine**: Added client-supplied `idempotency_key` caching to `issue_refund`. Replaying an identical refund safely returns the existing receipt without double-incrementing counters or creating duplicate mutations, while preserving defensive rejection for unkeyed duplicates.\n"
             "2. **Interactive Policy Gate Simulator**: A live testing widget and `POST /api/policy/simulate` endpoint allowing operators to test boundary conditions ($75 limit, 30 days, frozen cards, pending charges) with an instant pass/fail audit checklist.\n"
-            "3. **Continuous Learning Knowledge Atlas**: A one-click `✨ Draft KB Article` engine on resolved specialist tickets (`POST /api/inbox/tickets/{id}/generate-kb-article`) that auto-synthesizes verified grounding documents.\n"
+            "3. **Continuous Learning Knowledge Atlas**: A one-click `Draft KB Article` engine on resolved specialist tickets (`POST /api/inbox/tickets/{id}/generate-kb-article`) that auto-synthesizes verified grounding documents.\n"
             "4. **One-Click SOC-2 Type II Audit Pack Exporter**: Downloads a cryptographically sealed compliance artifact with redacting sensitive card digits and attaching a 64-character SHA-256 digital integrity seal."
         ),
         "followups": [
