@@ -444,8 +444,6 @@ KNOWLEDGE_DOCUMENTS: List[Dict[str, Any]] = [
 ]
 
 # 4. Token & Cost Accounting Ledger (Live Dynamic Telemetry)
-USAGE_METRICS_PATH = Path(__file__).parent.parent / "data" / "usage_metrics.json"
-
 MODEL_PRICING: Dict[str, Dict[str, Any]] = {
     "gpt-4o-mini": {"input_rate": 0.00000015, "output_rate": 0.00000060, "name": "OpenAI GPT-4o Mini", "provider": "OpenAI"},
     "gemini-2.5-flash": {"input_rate": 0.000000075, "output_rate": 0.00000030, "name": "Google Gemini 2.5 Flash", "provider": "Google"},
@@ -481,6 +479,11 @@ INITIAL_INVOCATIONS_LEDGER: List[Dict[str, Any]] = [
     {"id": "inv_1001", "timestamp": "2026-10-12T15:20:00Z", "model": "gpt-4o-mini", "input_tokens": 1050, "output_tokens": 76, "cost_usd": 0.00020, "status": "success", "tool_called": "escalate_to_human", "latency_ms": 220, "channel": "Customer Widget"},
 ]
 
+USAGE_METRICS_PATHS = [
+    Path(__file__).parent.parent / "data" / "usage_metrics.json",
+    Path("/tmp") / "fini_usage_metrics.json"
+]
+
 def load_usage_metrics() -> Dict[str, Any]:
     """Load persistent usage metrics from disk or initialize with calibrated baseline."""
     default_metrics = {
@@ -499,28 +502,31 @@ def load_usage_metrics() -> Dict[str, Any]:
         "csat_score_percent": 95.8,
         "recent_invocations": list(INITIAL_INVOCATIONS_LEDGER),
     }
-    if USAGE_METRICS_PATH.exists():
-        try:
-            with open(USAGE_METRICS_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                for k, v in default_metrics.items():
-                    if k not in data:
-                        data[k] = v
-                if not data.get("recent_invocations"):
-                    data["recent_invocations"] = list(INITIAL_INVOCATIONS_LEDGER)
-                return data
-        except Exception as e:
-            logger.warning(f"Failed to load usage metrics from disk: {e}")
+    for p in USAGE_METRICS_PATHS:
+        if p.exists():
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    for k, v in default_metrics.items():
+                        if k not in data:
+                            data[k] = v
+                    if not data.get("recent_invocations"):
+                        data["recent_invocations"] = list(INITIAL_INVOCATIONS_LEDGER)
+                    return data
+            except Exception as e:
+                logger.warning(f"Failed to load usage metrics from disk: {e}")
     return default_metrics
 
 def save_usage_metrics() -> None:
-    """Save persistent usage metrics to disk."""
-    try:
-        USAGE_METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(USAGE_METRICS_PATH, "w", encoding="utf-8") as f:
-            json.dump(USAGE_METRICS, f, indent=2)
-    except Exception as e:
-        logger.warning(f"Failed to persist usage metrics: {e}")
+    """Save persistent usage metrics to disk with serverless read-only fallback."""
+    for p in USAGE_METRICS_PATHS:
+        try:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(USAGE_METRICS, f, indent=2)
+            break
+        except Exception:
+            continue
 
 USAGE_METRICS: Dict[str, Any] = load_usage_metrics()
 

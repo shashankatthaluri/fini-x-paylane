@@ -77,6 +77,48 @@ def inspect_headers(request: Request):
     }
 
 
+import traceback
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error_type": type(exc).__name__,
+            "error_message": str(exc),
+            "traceback": traceback.format_exc(),
+            "path": request.scope.get("path")
+        }
+    )
+
+@app.get("/api/diagnostic-chat")
+def diagnostic_chat():
+    results = {}
+    try:
+        from web.app import ask_shashank_ama, AMAChatRequest, process_chat, ChatRequest
+        req = AMAChatRequest(message="Test question", history=[])
+        res = ask_shashank_ama(req)
+        results["ama_status"] = "ok"
+        results["ama_source"] = res.get("source")
+        results["ama_reply"] = res.get("reply", "")[:100]
+    except Exception as e:
+        results["ama_status"] = "error"
+        results["ama_error"] = str(e)
+        results["ama_traceback"] = traceback.format_exc()
+
+    try:
+        from web.app import process_chat, ChatRequest
+        chat_req = ChatRequest(message="Hello")
+        chat_res = process_chat("diag_sess_test", chat_req)
+        results["chat_status"] = "ok"
+        results["chat_agent_response"] = chat_res.get("agent_response", "")[:100]
+    except Exception as e:
+        results["chat_status"] = "error"
+        results["chat_error"] = str(e)
+        results["chat_traceback"] = traceback.format_exc()
+
+    return results
+
 # Import and attach all routes from the core web application
 try:
     from web.app import app as web_app
