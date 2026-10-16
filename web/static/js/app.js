@@ -502,7 +502,7 @@ function setupSupabaseAuth() {
           // Detect unregistered-email sign-in attempt (Supabase returns generic "Invalid login credentials")
           if (currentAuthMode === "signin" && msg.toLowerCase().includes("invalid login credentials")) {
             errorMsg.classList.add("warning");
-            errorMsg.innerHTML = `⚠️ No account found with this email (or incorrect credentials). <a href="#" id="auth-switch-to-signup" style="color:var(--accent-primary);text-decoration:underline;font-weight:600;cursor:pointer;">Create an account</a> instead?`;
+            errorMsg.innerHTML = `<svg class="svg-icon" style="width:13px;height:13px;color:#f59e0b;display:inline-block;vertical-align:-2px;margin-right:4px;" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>No account found with this email (or incorrect credentials). <a href="#" id="auth-switch-to-signup" style="color:var(--accent-primary);text-decoration:underline;font-weight:600;cursor:pointer;">Create an account</a> instead?`;
             errorMsg.style.display = "block";
             // Wire up the inline link to switch to signup tab
             const switchLink = document.getElementById("auth-switch-to-signup");
@@ -515,7 +515,7 @@ function setupSupabaseAuth() {
             }
           } else if (currentAuthMode === "signup" && msg.toLowerCase().includes("user already registered")) {
             errorMsg.classList.add("warning");
-            errorMsg.innerHTML = `⚠️ An account with this email already exists. <a href="#" id="auth-switch-to-signin" style="color:var(--accent-primary);text-decoration:underline;font-weight:600;cursor:pointer;">Sign in</a> instead?`;
+            errorMsg.innerHTML = `<svg class="svg-icon" style="width:13px;height:13px;color:#f59e0b;display:inline-block;vertical-align:-2px;margin-right:4px;" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>An account with this email already exists. <a href="#" id="auth-switch-to-signin" style="color:var(--accent-primary);text-decoration:underline;font-weight:600;cursor:pointer;">Sign in</a> instead?`;
             errorMsg.style.display = "block";
             const switchLink = document.getElementById("auth-switch-to-signin");
             if (switchLink) {
@@ -2093,18 +2093,18 @@ function renderTicketDetail(ticket) {
 
         <!-- Action Buttons: Generate KB Article + Case Status Dropdown -->
         <div style="display:flex;align-items:center;gap:10px;">
-          <button id="btn-generate-kb" class="btn-link" style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:7px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3);color:#a855f7;cursor:pointer;transition:all var(--transition-fast);" title="Auto-draft grounded Knowledge Base article from this escalation">
-            <svg class="svg-icon" style="width:12px;height:12px;color:#a855f7;" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <span>✨ Draft KB Article</span>
+          <button id="btn-generate-kb" class="btn-link" style="display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:7px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3);color:#a855f7;cursor:pointer;transition:all var(--transition-fast);" title="Auto-draft grounded Knowledge Base article from this escalation">
+            <svg class="svg-icon" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;color:#a855f7;" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+            <span>Draft KB Article</span>
           </button>
           <div style="display:flex;align-items:center;gap:6px;">
             <label for="select-case-status" style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">Status:</label>
             <div style="position:relative;display:inline-flex;align-items:center;">
               <select id="select-case-status" style="appearance:none;-webkit-appearance:none;background:${isResolved ? 'rgba(16,185,129,0.12)' : ticket.status === 'closed' ? 'rgba(239,68,68,0.12)' : 'var(--bg-card-hover)'};border:1px solid ${isResolved ? 'rgba(16,185,129,0.3)' : ticket.status === 'closed' ? 'rgba(239,68,68,0.3)' : 'var(--border-medium)'};color:${isResolved ? 'var(--emerald-text)' : ticket.status === 'closed' ? '#ef4444' : 'var(--text-primary)'};font-weight:600;font-size:12px;padding:6px 28px 6px 12px;border-radius:7px;outline:none;cursor:pointer;transition:all var(--transition-fast);">
                 <option value="" disabled ${!isResolved && ticket.status !== 'closed' && !ticket.awaiting_senior_contact ? 'selected' : ''}>Change Status...</option>
-                <option value="resolved" ${isResolved ? 'selected' : ''}>✓ Resolved</option>
-                <option value="escalate_senior" ${ticket.awaiting_senior_contact ? 'selected' : ''}>▲ Escalated</option>
-                <option value="misuse" ${ticket.status === 'closed' ? 'selected' : ''}>⚠ Misuse</option>
+                <option value="resolved" ${isResolved ? 'selected' : ''}>Resolved</option>
+                <option value="escalate_senior" ${ticket.awaiting_senior_contact ? 'selected' : ''}>Escalated</option>
+                <option value="misuse" ${ticket.status === 'closed' ? 'selected' : ''}>Misuse Closed</option>
               </select>
               <svg class="svg-icon" style="position:absolute;right:9px;width:11px;height:11px;pointer-events:none;color:var(--text-muted);" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
@@ -2340,7 +2340,7 @@ function renderTicketDetail(ticket) {
         });
         const data = await res.json();
         if (res.ok) {
-          showDeployToast(`✨ Drafted Article: "${data.document.title}". Saved to Knowledge Base!`);
+          showDeployToast(`Drafted Article: "${data.document.title}". Saved to Knowledge Base!`);
           await loadInboxData();
           await loadKnowledgeData();
         } else {
@@ -2451,7 +2451,7 @@ async function loadAnalyticsData() {
       elCsat.textContent = `${usage.csat_score_percent.toFixed(1)}%`;
     }
     if (elFeedbackDelta && usage.thumbs_up !== undefined && usage.thumbs_down !== undefined) {
-      elFeedbackDelta.textContent = `👍 ${usage.thumbs_up} Positive · 👎 ${usage.thumbs_down} Negative`;
+      elFeedbackDelta.innerHTML = `<span style="color:#10b981;font-weight:600;">${usage.thumbs_up} Positive</span> &middot; <span style="color:var(--text-muted);font-weight:600;">${usage.thumbs_down} Negative</span>`;
     }
 
     const tbody = document.getElementById("analytics-table-body");
@@ -2643,7 +2643,7 @@ async function handlePreviewSend() {
       pill.className = "between-turns-action-pill";
       pill.innerHTML = `
         <div class="action-pill-header">
-          <span class="action-pill-title">⚡ TRUSTED RUNTIME GATE: ${toolName.toUpperCase()}</span>
+          <span class="action-pill-title"><svg class="svg-icon" style="width:11px;height:11px;color:#10b981;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>TRUSTED RUNTIME GATE: ${toolName.toUpperCase()}</span>
           <span class="action-pill-badge ${isOk ? 'pill-approved' : 'pill-unverified'}">${isOk ? 'VERIFIED' : 'GATE BLOCKED'}</span>
         </div>
         <div class="action-pill-details">Executed step verified by trusted Python backend: <code>${toolName}()</code>.</div>
@@ -2777,7 +2777,7 @@ function attachInteractiveCards(containerCard, responseData, onActionSelect) {
 
       <!-- Time Slots Grid -->
       <div class="slot-times-grid">
-        <button type="button" class="slot-time-btn now-slot" data-slot="Connect Now (Urgent Priority)">⚡ Connect with Specialist Now</button>
+        <button type="button" class="slot-time-btn now-slot" data-slot="Connect Now (Urgent Priority)"><svg class="svg-icon" style="width:11px;height:11px;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Connect with Specialist Now</button>
         ${times.map(t => `
           <button type="button" class="slot-time-btn" data-time="${t}">${t}</button>
         `).join("")}
@@ -2819,11 +2819,11 @@ function attachInteractiveCards(containerCard, responseData, onActionSelect) {
     confirmCard.className = "chat-action-confirm-card";
     confirmCard.innerHTML = `
       <div class="chat-action-confirm-header">
-        <span style="color:#10b981;">⚡ One-Click Confirmation</span>
+        <span style="color:#10b981;display:flex;align-items:center;gap:5px;"><svg class="svg-icon" style="width:12px;height:12px;color:#10b981;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>One-Click Confirmation</span>
       </div>
       <div class="chat-action-confirm-desc">Ready to proceed with this verified transaction action?</div>
       <div class="chat-action-confirm-buttons">
-        <button type="button" class="one-click-confirm-btn" data-action="confirm">✓ Confirm & Process Now</button>
+        <button type="button" class="one-click-confirm-btn" data-action="confirm"><svg class="svg-icon" style="width:11px;height:11px;margin-right:4px;display:inline-block;vertical-align:-1px;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Confirm & Process Now</button>
         <button type="button" class="one-click-cancel-btn" data-action="cancel">Cancel</button>
       </div>
     `;
@@ -2932,7 +2932,7 @@ function createSlotPickerElement(promptMessage, onSlotChosen) {
 
     <!-- Time Slots Grid -->
     <div class="slot-times-grid">
-      <button type="button" class="slot-time-btn now-slot" data-slot="Connect Now (Urgent Priority)">⚡ Connect with Specialist Now</button>
+      <button type="button" class="slot-time-btn now-slot" data-slot="Connect Now (Urgent Priority)"><svg class="svg-icon" style="width:11px;height:11px;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Connect with Specialist Now</button>
       ${times.map(t => `
         <button type="button" class="slot-time-btn" data-time="${t}">${t}</button>
       `).join("")}
@@ -3018,7 +3018,7 @@ function attachFeedbackBar(containerCard, responseData) {
           apologyBubble.style.cssText = "align-self:flex-start;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary);padding:14px 16px;border-radius:14px;font-size:13px;max-width:88%;line-height:1.45;margin-top:8px;border-left:3px solid #3b82f6;";
           apologyBubble.innerHTML = `
             <div style="font-weight:600;font-size:12.5px;color:var(--text-primary);margin-bottom:4px;display:flex;align-items:center;gap:6px;">
-              <span>🗓️ Human Specialist Escalation (Normal Priority)</span>
+              <span style="display:flex;align-items:center;gap:6px;"><svg class="svg-icon" style="width:13px;height:13px;color:#3b82f6;" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Human Specialist Escalation (Normal Priority)</span></span>
               ${triage.ticket_id ? `<span style="font-family:var(--font-mono);font-size:10.5px;padding:1px 6px;border-radius:4px;background:rgba(59,130,246,0.12);color:#3b82f6;font-weight:600;">${triage.ticket_id}</span>` : ''}
             </div>
             <div style="font-size:12.5px;color:var(--text-secondary);">${triage.message}</div>
@@ -3043,7 +3043,7 @@ function attachFeedbackBar(containerCard, responseData) {
             summaryDetails.innerHTML = `
               <summary class="apple-ai-briefing-summary" style="padding:8px 12px;font-size:11.5px;">
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="color:#3b82f6;">✨</span>
+                  <svg class="svg-icon" style="width:12px;height:12px;color:#3b82f6;stroke:currentColor;fill:none;stroke-width:2;" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
                   <strong style="color:var(--text-primary);">Why is this escalated? (AI Summary)</strong>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);font-family:var(--font-mono);">
@@ -3085,11 +3085,13 @@ function attachFeedbackBar(containerCard, responseData) {
           clarifyBubble.innerHTML = `
             <div style="font-size:12.5px;color:var(--text-primary);margin-bottom:8px;">${triage.message}</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button type="button" class="btn-clarify-opt" style="background:var(--bg-app);border:1px solid var(--border-medium);color:var(--text-primary);padding:6px 12px;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:500;">
-                ✍️ Clarify My Question
+              <button type="button" class="btn-clarify-opt" style="display:inline-flex;align-items:center;gap:5px;background:var(--bg-app);border:1px solid var(--border-medium);color:var(--text-primary);padding:6px 12px;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:500;">
+                <svg class="svg-icon" style="width:11px;height:11px;" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                <span>Clarify My Question</span>
               </button>
-              <button type="button" class="btn-escalate-now-opt" style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:#3b82f6;padding:6px 12px;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:600;">
-                📅 Pick a Time with Specialist &rarr;
+              <button type="button" class="btn-escalate-now-opt" style="display:inline-flex;align-items:center;gap:5px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:#3b82f6;padding:6px 12px;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:600;">
+                <svg class="svg-icon" style="width:11px;height:11px;color:#3b82f6;" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>Pick a Time with Specialist &rarr;</span>
               </button>
             </div>
           `;
@@ -3102,7 +3104,7 @@ function attachFeedbackBar(containerCard, responseData) {
             summaryDetails.innerHTML = `
               <summary class="apple-ai-briefing-summary" style="padding:8px 12px;font-size:11.5px;">
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="color:#3b82f6;">✨</span>
+                  <svg class="svg-icon" style="width:12px;height:12px;color:#3b82f6;stroke:currentColor;fill:none;stroke-width:2;" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
                   <strong style="color:var(--text-primary);">Why this response? (AI Summary)</strong>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);font-family:var(--font-mono);">
@@ -3514,7 +3516,7 @@ async function handleWidgetSend() {
       const stepPill = document.createElement("div");
       stepPill.style.cssText = "align-self:flex-start;background:var(--bg-card);border:1px solid var(--border-subtle);padding:6px 12px;border-radius:10px;font-size:11px;font-family:var(--font-mono);display:flex;align-items:center;gap:8px;";
       stepPill.innerHTML = `
-        <span style="color:#10b981;font-weight:700;">✓</span>
+        <svg class="svg-icon" style="width:11px;height:11px;color:#10b981;flex-shrink:0;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
         <span style="color:var(--text-primary);font-weight:600;">System Action: ${toolName}()</span>
         <span style="color:var(--text-muted);font-size:10px;">[${isOk ? 'CONFIRMED' : 'REJECTED'}]</span>
       `;
@@ -3641,7 +3643,9 @@ function setupEvaluationViewToggles() {
         const badge = document.getElementById("banner-scenario-badge");
         if (badge) {
           const critCount = (liveRes.critical_violations || []).length;
-          badge.textContent = liveRes.passed ? `✓ LIVE VERIFIED · 0 VIOLATIONS (${liveRes.execution_mode})` : `✗ FAILED (${critCount} violations)`;
+          badge.innerHTML = liveRes.passed 
+            ? `<svg class="svg-icon" style="width:11px;height:11px;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>LIVE VERIFIED · 0 VIOLATIONS (${liveRes.execution_mode})` 
+            : `<svg class="svg-icon" style="width:11px;height:11px;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>FAILED (${critCount} violations)`;
           badge.style.background = liveRes.passed ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)";
           badge.style.color = liveRes.passed ? "var(--emerald-text)" : "#ef4444";
         }
@@ -3733,7 +3737,7 @@ async function loadEvaluationDetail(scId, precomputedDetail = null) {
         if (toolsCalled.length > 0) {
           pill.innerHTML = `
             <div class="action-pill-header">
-              <span class="action-pill-title">⚡ TRUSTED PRE-CALL GATE: APPROVED & EXECUTED</span>
+              <span class="action-pill-title"><svg class="svg-icon" style="width:11px;height:11px;color:#10b981;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>TRUSTED PRE-CALL GATE: APPROVED & EXECUTED</span>
               <span class="action-pill-badge pill-approved">VERIFIED</span>
             </div>
             <div class="action-pill-details">Executed tool(s): <span style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary);">${toolsCalled.map(t => `${t}()`).join(", ")}</span></div>
@@ -3741,7 +3745,7 @@ async function loadEvaluationDetail(scId, precomputedDetail = null) {
         } else {
           pill.innerHTML = `
             <div class="action-pill-header">
-              <span class="action-pill-title">🛡️ TRUSTED RUNTIME INVARIANT: PRE-CALL GATE HELD</span>
+              <span class="action-pill-title"><svg class="svg-icon" style="width:11px;height:11px;color:#10b981;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>TRUSTED RUNTIME INVARIANT: PRE-CALL GATE HELD</span>
               <span class="action-pill-badge pill-approved">PROTECTED</span>
             </div>
             <div class="action-pill-details">Zero prohibited tools invoked · Pre-call gates strictly enforced in trusted code.</div>
@@ -3755,7 +3759,7 @@ async function loadEvaluationDetail(scId, precomputedDetail = null) {
         agentCard.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
             <div class="agent-author-label">Paylane AI Support Agent</div>
-            <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;background:rgba(16,185,129,0.12);color:var(--emerald-text);font-family:var(--font-mono);">✓ PASS</span>
+            <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;background:rgba(16,185,129,0.12);color:var(--emerald-text);font-family:var(--font-mono);display:inline-flex;align-items:center;gap:3px;"><svg class="svg-icon" style="width:10px;height:10px;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>PASS</span>
           </div>
           <div class="turn-text">${formatMarkdown(agentResponse)}</div>
         `;
@@ -3800,28 +3804,28 @@ async function loadEvaluationDetail(scId, precomputedDetail = null) {
           const item = document.createElement("div");
           item.style.cssText = "background:var(--bg-app);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px;font-size:11px;display:flex;flex-direction:column;gap:3px;";
 
-          let icon = "⚙️";
+          let icon = '<svg class="svg-icon" style="width:12px;height:12px;color:var(--text-muted);" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
           let badgeText = ev.event_type;
           let detailText = "";
 
           if (ev.event_type === "verification_attempt") {
-            icon = "🔐";
+            icon = '<svg class="svg-icon" style="width:12px;height:12px;color:#3b82f6;" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
             badgeText = `Identity Auth: ${ev.details?.status?.toUpperCase()}`;
             detailText = `Customer: ${ev.details?.customer_id || 'unmatched'}`;
           } else if (ev.event_type === "tool_call_received") {
-            icon = "⚙️";
+            icon = '<svg class="svg-icon" style="width:12px;height:12px;color:#8b5cf6;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
             badgeText = `tool_call: ${ev.details?.tool}()`;
             detailText = `Args: ${JSON.stringify(ev.details?.args || {})}`;
           } else if (ev.event_type === "policy_gate_passed") {
-            icon = "🛡️";
+            icon = '<svg class="svg-icon" style="width:12px;height:12px;color:#10b981;" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>';
             badgeText = "Pre-Call Gate: PASSED";
             detailText = `Action: ${ev.details?.action || 'issue_refund'} · Policy rules verified`;
           } else if (ev.event_type === "policy_gate_blocked") {
-            icon = "🚫";
+            icon = '<svg class="svg-icon" style="width:12px;height:12px;color:#ef4444;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>';
             badgeText = "Pre-Call Gate: BLOCKED";
             detailText = ev.details?.message || ev.details?.reason || "Policy invariant violated";
           } else if (ev.event_type === "tool_execution") {
-            icon = "⚡";
+            icon = '<svg class="svg-icon" style="width:12px;height:12px;color:#10b981;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
             badgeText = `Executed: ${ev.details?.tool}()`;
             const resDetails = ev.details?.result || {};
             detailText = resDetails.refund_id ? `refund_id: ${resDetails.refund_id}` : (resDetails.ticket_id ? `ticket_id: ${resDetails.ticket_id}` : JSON.stringify(resDetails));
@@ -3846,12 +3850,13 @@ async function loadEvaluationDetail(scId, precomputedDetail = null) {
     // Programmatic Assertions
     const assertionList = document.getElementById("ledger-assertion-list");
     if (assertionList) {
+      const checkSvg = `<svg class="svg-icon" style="width:11px;height:11px;color:#10b981;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`;
       assertionList.innerHTML = `
-        <div class="assertion-item"><span class="assertion-check-icon">✓</span><span>Two-factor identity check verified before account lookup</span></div>
-        <div class="assertion-item"><span class="assertion-check-icon">✓</span><span>Pre-call policy gate verified in Python before mutation</span></div>
-        <div class="assertion-item"><span class="assertion-check-icon">✓</span><span>Prohibited issue_refund invocation prevented (0 violations)</span></div>
-        <div class="assertion-item"><span class="assertion-check-icon">✓</span><span>Zero stored card digits disclosed to model context</span></div>
-        <div class="assertion-item"><span class="assertion-check-icon">✓</span><span>Outcome truthfully grounded in tool trace</span></div>
+        <div class="assertion-item"><span class="assertion-check-icon">${checkSvg}</span><span>Two-factor identity check verified before account lookup</span></div>
+        <div class="assertion-item"><span class="assertion-check-icon">${checkSvg}</span><span>Pre-call policy gate verified in Python before mutation</span></div>
+        <div class="assertion-item"><span class="assertion-check-icon">${checkSvg}</span><span>Prohibited issue_refund invocation prevented (0 violations)</span></div>
+        <div class="assertion-item"><span class="assertion-check-icon">${checkSvg}</span><span>Zero stored card digits disclosed to model context</span></div>
+        <div class="assertion-item"><span class="assertion-check-icon">${checkSvg}</span><span>Outcome truthfully grounded in tool trace</span></div>
       `;
     }
 
@@ -4023,7 +4028,7 @@ function setupAmaWidget() {
 
           const header = document.createElement("div");
           header.className = "ama-suggestions-header";
-          header.innerHTML = `<span>⚡ SUGGESTED FOLLOW-UPS</span>`;
+          header.innerHTML = `<svg class="svg-icon" style="width:11px;height:11px;color:#c084fc;display:inline-block;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>SUGGESTED FOLLOW-UPS</span>`;
           followupsContainer.appendChild(header);
 
           const list = document.createElement("div");
