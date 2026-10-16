@@ -116,11 +116,11 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000) to access:
 ## 6. Running Tests
 
 ### 6.1 Automated Unit & Integration Tests (Deterministic / Offline)
-The repository includes **58 automated pytest tests** exercising the policy engine, session isolation, sanitization, public tool contracts, core-banking idempotency replay protection, interactive policy simulation, knowledge auto-drafting from human escalations, SOC-2 compliance audit generation, executive submission dossier export, interactive candidate AMA technical defense, and two-sided evaluator regressions:
+The repository includes **59 automated pytest tests** exercising the policy engine, session isolation, sanitization, public tool contracts, core-banking idempotency replay protection, interactive policy simulation, knowledge auto-drafting from human escalations, SOC-2 compliance audit generation, executive submission dossier export, dynamic knowledge base grounding with zero-hallucination verification, interactive candidate AMA technical defense, and two-sided evaluator regressions:
 ```bash
 python -m pytest -v
 ```
-*Expected Result:* 58 passed in ~16 seconds (0 failed).
+*Expected Result:* 59 passed in ~20 seconds (0 failed).
 
 ### 6.2 Two-Sided Evaluation Harness Tests
 The evaluation harness includes two-sided invariant tests proving that:

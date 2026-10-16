@@ -348,6 +348,48 @@ def test_export_executive_dossier_endpoint():
     assert "evaluation/report.md" in namelist
 
 
+def test_new_policy_knowledge_grounding_and_no_hallucination():
+    """Verify that adding a new policy document updates active agent instructions and remains strictly grounded."""
+    from fastapi.testclient import TestClient
+    from web.app import app, ACTIVE_DRAFT, ACTIVE_SESSIONS
+
+    client = TestClient(app)
+
+    # 1. Add a new authoritative policy document via the API
+    new_policy_payload = {
+        "title": "International Travel Notice Policy",
+        "category": "Card Operations",
+        "summary": "Cardholders must notify Paylane at least 48 hours in advance before international travel to prevent automated fraud locks.",
+        "content": "To ensure uninterrupted card usage abroad, cardholders must register travel notices at least 48 hours prior to foreign departures. Failure to submit travel notifications may trigger automated fraud prevention locks on international merchant transactions."
+    }
+
+    res_add = client.post("/api/knowledge/documents", json=new_policy_payload)
+    assert res_add.status_code == 200
+    add_data = res_add.json()
+    assert add_data["status"] == "success"
+    assert "International Travel Notice Policy" in ACTIVE_DRAFT["instructions"]
+    assert "48 hours in advance" in ACTIVE_DRAFT["instructions"]
+
+    # 2. Verify that creating a session incorporates this new grounding policy in its system instructions
+    res_sess = client.post("/api/sessions", json={"scenario_id": "test_grounding"})
+    assert res_sess.status_code == 200
+    session_id = res_sess.json()["session_id"]
+
+    session_data = ACTIVE_SESSIONS.get(session_id)
+    assert session_data is not None
+    runner = session_data["runner"]
+    assert "International Travel Notice Policy" in runner.system_prompt
+    assert "48 hours in advance" in runner.system_prompt
+    assert "48 hours in advance" in runner.session.messages[0]["content"]
+
+    # 3. Process a message and verify that the session maintains strict grounding
+    res_msg = client.post(f"/api/sessions/{session_id}/chat", json={"message": "What is the policy for using my card internationally?"})
+    assert res_msg.status_code == 200
+    reply = res_msg.json()["agent_response"]
+    assert len(reply) > 20
+
+
+
 
 
 

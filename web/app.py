@@ -858,9 +858,13 @@ def process_chat(session_id: str, req: ChatRequest):
                 "takeover_active": False,
             }
 
-    # Ensure active runner uses current draft model & temperature settings
+    # Ensure active runner uses current draft model, temperature, and grounded instructions
     runner.model_name = ACTIVE_DRAFT.get("model", "gpt-4o-mini")
     runner.temperature = float(ACTIVE_DRAFT.get("temperature", 0.0))
+    current_inst = ACTIVE_DRAFT.get("instructions", DEFAULT_INSTRUCTIONS)
+    runner.system_prompt = current_inst
+    if session.messages and session.messages[0].get("role") == "system":
+        session.messages[0]["content"] = current_inst
 
     # Process turn through trusted runner
     agent_response = runner.process_turn(req.message)
