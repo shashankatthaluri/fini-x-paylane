@@ -47,16 +47,35 @@ app.add_middleware(
 # Resilient ASGI middleware to normalize any rewritten paths from Vercel
 @app.middleware("http")
 async def normalize_vercel_rewrites(request: Request, call_next):
-    raw_path = request.scope.get("path", "")
-    if raw_path.startswith("/api/index.py"):
-        suffix = raw_path[len("/api/index.py"):]
-        if not suffix or suffix == "/":
-            request.scope["path"] = "/api"
-        elif suffix.startswith("/"):
-            request.scope["path"] = "/api" + suffix
-        else:
-            request.scope["path"] = "/api/" + suffix
+    # 1. Check if Vercel forwarded the original client route in incoming headers
+    orig_path = (
+        request.headers.get("x-matched-path")
+        or request.headers.get("x-forwarded-uri")
+        or request.headers.get("x-invoke-path")
+        or request.headers.get("x-vercel-matched-path")
+    )
+    if orig_path and orig_path.startswith("/api") and not orig_path.startswith("/api/index.py"):
+        request.scope["path"] = orig_path.split("?")[0]
+    else:
+        raw_path = request.scope.get("path", "")
+        if raw_path.startswith("/api/index.py"):
+            suffix = raw_path[len("/api/index.py"):]
+            if not suffix or suffix == "/":
+                request.scope["path"] = "/api"
+            elif suffix.startswith("/"):
+                request.scope["path"] = "/api" + suffix
+            else:
+                request.scope["path"] = "/api/" + suffix
     return await call_next(request)
+
+@app.get("/api/inspect")
+def inspect_headers(request: Request):
+    return {
+        "scope_path": request.scope.get("path"),
+        "raw_path": str(request.scope.get("raw_path")),
+        "headers": dict(request.headers),
+    }
+
 
 # Import and attach all routes from the core web application
 try:
