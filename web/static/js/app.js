@@ -3885,6 +3885,11 @@ function setupAmaWidget() {
     const chips = document.getElementById("ama-chips-container");
     if (chips) chips.style.display = "none";
 
+    // Clear previous inline follow-up suggestions from view
+    if (msgContainer) {
+      msgContainer.querySelectorAll(".ama-inline-suggestions").forEach(el => el.remove());
+    }
+
     appendAmaMessage("user", text);
     amaHistory.push({ role: "user", content: text });
 
@@ -3912,22 +3917,51 @@ function setupAmaWidget() {
       if (typingEl) typingEl.remove();
 
       const reply = data.reply || "I'd be glad to discuss that further. Feel free to ask about any other architectural trade-off.";
-      appendAmaMessage("assistant", reply);
       amaHistory.push({ role: "assistant", content: reply });
 
-      // Render suggested followups if available
-      if (Array.isArray(data.suggested_followups) && data.suggested_followups.length > 0) {
-        const followupsContainer = document.createElement("div");
-        followupsContainer.className = "ama-quick-chips";
-        followupsContainer.style.marginTop = "6px";
-        followupsContainer.innerHTML = data.suggested_followups.slice(0, 3).map(f => `
-          <button class="ama-chip" onclick="if(window.sendAmaPrompt)window.sendAmaPrompt('${f.replace(/'/g, "\\'")}');">
-            ↳ ${f}
-          </button>
-        `).join("");
-        msgContainer.appendChild(followupsContainer);
-        msgContainer.scrollTop = msgContainer.scrollHeight;
-      }
+      // Create assistant bubble row for smooth typewriter streaming
+      const assistantRow = document.createElement("div");
+      assistantRow.className = "ama-msg-row ama-msg-assistant";
+      const bubble = document.createElement("div");
+      bubble.className = "ama-bubble";
+      assistantRow.appendChild(bubble);
+      msgContainer.appendChild(assistantRow);
+      msgContainer.scrollTop = msgContainer.scrollHeight;
+
+      // Stream text token-by-token with typewriter effect
+      streamTextTypewriter(bubble, reply, msgContainer, () => {
+        // Render suggested followups if available
+        if (Array.isArray(data.suggested_followups) && data.suggested_followups.length > 0) {
+          const followupsContainer = document.createElement("div");
+          followupsContainer.className = "ama-inline-suggestions";
+
+          const header = document.createElement("div");
+          header.className = "ama-suggestions-header";
+          header.innerHTML = `<span>⚡ SUGGESTED FOLLOW-UPS</span>`;
+          followupsContainer.appendChild(header);
+
+          const list = document.createElement("div");
+          list.className = "ama-suggestions-list";
+
+          data.suggested_followups.slice(0, 3).forEach(f => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "ama-suggestion-pill";
+            btn.innerHTML = `<span class="pill-arrow">↳</span><span>${f}</span>`;
+            btn.onclick = () => {
+              if (window.sendAmaPrompt) window.sendAmaPrompt(f);
+            };
+            list.appendChild(btn);
+          });
+
+          followupsContainer.appendChild(list);
+          msgContainer.appendChild(followupsContainer);
+          msgContainer.scrollTop = msgContainer.scrollHeight;
+        }
+
+        isThinking = false;
+        if (input) input.focus();
+      });
 
       // Refresh live operational KPIs and telemetry in background
       if (typeof loadOverviewData === "function") loadOverviewData();
@@ -3936,7 +3970,6 @@ function setupAmaWidget() {
       const typingEl = document.getElementById("ama-typing-indicator-row");
       if (typingEl) typingEl.remove();
       appendAmaMessage("assistant", "I ran into a connection issue reaching the AMA engine, but all architectural decisions are documented in detail in `docs/DECISIONS.md`.");
-    } finally {
       isThinking = false;
     }
   };
