@@ -3332,6 +3332,8 @@ function createSlotPickerElement(promptMessage, onSlotChosen) {
 function attachFeedbackBar(containerCard, responseData) {
   if (containerCard.querySelector(".agent-feedback-bar")) return;
 
+  const timeFormatted = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
   const bar = document.createElement("div");
   bar.className = "agent-feedback-bar";
   bar.innerHTML = `
@@ -3342,6 +3344,7 @@ function attachFeedbackBar(containerCard, responseData) {
       <svg class="svg-icon" style="width:13px;height:13px;" viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
     </button>
     <span class="feedback-status-text"></span>
+    <span class="feedback-timestamp" style="margin-left:auto;font-size:10.5px;color:var(--text-muted);">${timeFormatted}</span>
   `;
 
   const btnUp = bar.querySelector('[data-vote="up"]');
@@ -3353,10 +3356,10 @@ function attachFeedbackBar(containerCard, responseData) {
     btnDown.disabled = true;
     if (vote === "up") {
       btnUp.classList.add("voted-up");
-      statusSpan.textContent = "Thanks for your feedback!";
+      statusSpan.textContent = "Thank you for your feedback!";
     } else {
       btnDown.classList.add("voted-down");
-      statusSpan.textContent = "Feedback logged for AI review.";
+      statusSpan.textContent = "Feedback logged for review.";
     }
 
     try {
@@ -3411,7 +3414,7 @@ function attachFeedbackBar(containerCard, responseData) {
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text-muted);font-family:var(--font-mono);">
                   <span>TAP TO VIEW</span>
-                  <span>▾</span>
+                  <svg class="svg-icon" style="width:10px;height:10px;" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
                 </div>
               </summary>
               <div class="apple-briefing-dropdown-panel" style="padding:10px 12px;gap:8px;">
@@ -3808,7 +3811,7 @@ function renderTicketConversationInWidget(msgsContainer, ticket) {
       ${(ticket.messages || []).map(m => `
         <div style="align-self:${m.role === 'customer' ? 'flex-end' : 'flex-start'};max-width:85%;">
           <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;text-align:${m.role === 'customer' ? 'right' : 'left'};">
-            ${m.role === 'customer' ? 'You' : 'Paylane AI Support'} · ${m.time}
+            ${m.role === 'customer' ? 'You' : 'Paylane Support'} · ${m.time}
           </div>
           <div style="background:${m.role === 'customer' ? 'var(--bg-bubble-user)' : 'var(--bg-app)'};color:${m.role === 'customer' ? 'var(--text-bubble-user)' : 'var(--text-primary)'};border:1px solid var(--border-subtle);padding:8px 12px;border-radius:10px;font-size:12px;line-height:1.4;">
             ${m.text}
@@ -3847,16 +3850,26 @@ async function handleWidgetSend() {
 
   if (!msgs) return;
 
-  // Append user message with theme variables
+  const now = new Date();
+  const timeFormatted = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  // Append user message with theme variables and subtle timestamp
   const userCard = document.createElement("div");
   userCard.style.cssText = "align-self:flex-end;background:var(--bg-bubble-user);color:var(--text-bubble-user);padding:10px 14px;border-radius:14px;font-size:13px;max-width:85%;border:1px solid var(--border-subtle);";
-  userCard.textContent = text;
+  const userTextDiv = document.createElement("div");
+  userTextDiv.textContent = text;
+  const userTimeDiv = document.createElement("div");
+  userTimeDiv.style.cssText = "font-size:10px;opacity:0.75;text-align:right;margin-top:4px;";
+  userTimeDiv.textContent = timeFormatted;
+  userCard.appendChild(userTextDiv);
+  userCard.appendChild(userTimeDiv);
   msgs.appendChild(userCard);
 
-  // Append agent message card immediately containing three bouncing dots
+  // Append agent message card immediately containing author label and three bouncing dots
   const agentCard = document.createElement("div");
   agentCard.style.cssText = "align-self:flex-start;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary);padding:12px 16px;border-radius:14px;font-size:13px;max-width:85%;line-height:1.45;";
   agentCard.innerHTML = `
+    <div class="turn-author-label" style="margin-bottom:4px;">Paylane Support</div>
     <div class="turn-text">
       <div class="bouncing-dots-container">
         <span class="bouncing-dot"></span>
@@ -3872,35 +3885,12 @@ async function handleWidgetSend() {
     const { primary, backup } = getSelectedModels();
     const res = await api.sendChatMessage(state.widgetSessionId, text, primary, backup);
 
-    // Display step-by-step actions before the agent card in customer widget
-    const actionEvents = (res.all_events || []).filter(e => e.event_type === "tool_execution" || e.event_type === "policy_gate_passed");
-    for (const toolEvent of actionEvents) {
-      const toolName = toolEvent.details?.tool || "pre_call_policy_gate";
-      const isOk = toolEvent.details?.result && !toolEvent.details?.result?.error && toolEvent.details?.result?.ok !== false;
-      const stepPill = document.createElement("div");
-      stepPill.style.cssText = "align-self:flex-start;background:var(--bg-card);border:1px solid var(--border-subtle);padding:6px 12px;border-radius:10px;font-size:11px;font-family:var(--font-mono);display:flex;align-items:center;gap:8px;";
-      stepPill.innerHTML = `
-        <svg class="svg-icon" style="width:11px;height:11px;color:#10b981;flex-shrink:0;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-        <span style="color:var(--text-primary);font-weight:600;">System Action: ${toolName}()</span>
-        <span style="color:var(--text-muted);font-size:10px;">[${isOk ? 'CONFIRMED' : 'REJECTED'}]</span>
-      `;
-      msgs.insertBefore(stepPill, agentCard);
-      msgs.scrollTop = msgs.scrollHeight;
-      await new Promise(r => setTimeout(r, 160));
-    }
+    // Note: In the Customer Widget, we deliberately do NOT display internal raw developer "System Action"
+    // pills or AI model provenance badges (e.g. GPT-4o Mini, ms latency).
+    // The Customer Widget presents an authentic customer perspective.
 
     const turnTextEl = agentCard.querySelector(".turn-text");
     streamTextTypewriter(turnTextEl, res.agent_response, msgs, () => {
-      // Append model provenance badge
-      if (res.provider_display) {
-        const provEl = document.createElement("div");
-        provEl.className = "agent-provenance-tag";
-        provEl.style.cssText = "font-size:10px;color:var(--text-muted);font-family:var(--font-mono);margin-top:6px;display:flex;align-items:center;gap:5px;";
-        const failoverNote = res.failover_occurred ? ` <span style="color:#f59e0b;font-weight:600;">(failover route)</span>` : "";
-        provEl.innerHTML = `<svg class="svg-icon" style="width:11px;height:11px;color:var(--text-muted);" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg><span>${res.provider_display}</span>${failoverNote}<span>&middot;</span><span>${res.execution_time_ms || 240}ms</span>`;
-        agentCard.appendChild(provEl);
-      }
-
       // Attach one-click calendar/slot selector or action confirm card inside Widget
       attachInteractiveCards(agentCard, res, (selectedText) => {
         const widgetInput = document.getElementById("widget-input");
