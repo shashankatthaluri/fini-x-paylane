@@ -882,7 +882,12 @@ def process_chat(session_id: str, req: ChatRequest):
         session.messages[0]["content"] = current_inst
 
     # Process turn through trusted runner
-    agent_response = runner.process_turn(req.message)
+    try:
+        agent_response = runner.process_turn(req.message)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        agent_response = "I encountered a brief connection issue. Please allow me a moment and repeat your request."
 
     # Extract new trace events for this turn
     new_events = session.tool_trace[trace_len_before:]

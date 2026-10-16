@@ -132,13 +132,19 @@ class AgentRunner:
 
         while iteration < max_tool_iterations:
             iteration += 1
-            response = self.llm_client.chat.completions.create(
-                model=self.model_name,
-                messages=self.session.messages,
-                tools=PUBLIC_TOOLS_SCHEMA,
-                tool_choice="auto",
-                temperature=self.temperature,
-            )
+            try:
+                response = self.llm_client.chat.completions.create(
+                    model=self.model_name,
+                    messages=self.session.messages,
+                    tools=PUBLIC_TOOLS_SCHEMA,
+                    tool_choice="auto",
+                    temperature=self.temperature,
+                )
+            except Exception as e:
+                # Graceful fallback on OpenAI API exceptions (e.g. quota, rate limits, network timeouts)
+                fallback_msg = self._offline_handle_turn()
+                self.session.messages.append({"role": "assistant", "content": fallback_msg})
+                return fallback_msg
 
             if hasattr(response, "usage") and response.usage:
                 self.last_turn_usage["input_tokens"] += getattr(response.usage, "prompt_tokens", 0) or 0
