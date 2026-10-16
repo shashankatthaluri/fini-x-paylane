@@ -539,6 +539,19 @@ def extract_latest_action(session: SessionState) -> Optional[Dict[str, Any]]:
     return None
 
 
+@app.get("/api")
+@app.get("/api/")
+def api_root():
+    """API root discovery and status."""
+    return {
+        "status": "online",
+        "service": "Paylane AI Support Agent API",
+        "version": "1.0.0",
+        "health": "/api/health",
+        "config": "/api/config",
+    }
+
+
 @app.get("/api/health")
 def health_check():
     """Health status and configuration."""
@@ -645,6 +658,8 @@ def get_session(session_id: str):
     """Retrieve current state of a session."""
     session_data = ACTIVE_SESSIONS.get(session_id)
     if not session_data:
+        if not session_id.startswith("sess_"):
+            raise HTTPException(status_code=404, detail="Session not found")
         store = FixtureStore()
         session = SessionState(session_id=session_id)
         client = get_llm_client()
@@ -2450,8 +2465,13 @@ def ask_shashank_ama(req: AMAChatRequest):
 
 static_dir = Path(__file__).resolve().parent / "static"
 if static_dir.exists():
-    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    try:
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-    @app.get("/")
-    def serve_index():
-        return FileResponse(str(static_dir / "index.html"))
+        @app.get("/")
+        def serve_index():
+            return FileResponse(str(static_dir / "index.html"))
+    except Exception:
+        # On serverless platforms (e.g. Vercel), static assets are served directly from CDN
+        pass
+
