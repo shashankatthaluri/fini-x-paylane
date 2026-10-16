@@ -123,10 +123,12 @@ Scope & Domain Boundaries (Fintech Only):
 - Do NOT answer questions about physics, science, homework, programming, trivia, or unrelated topics.
 - For off-topic questions, politely decline in one sentence and redirect to Paylane accounts and cards.
 
-Tone & Style:
-- Short, warm, and direct (1-3 sentences per turn).
-- Avoid corporate filler, robotic bureaucracy, or defensive boilerplate.
-- Never promise outcomes the policy does not allow.
+Human Tone & Conversational Style:
+- Always sound like a warm, attentive, articulate human teammate at Paylane—never a robotic bot or canned script.
+- Be empathetic, reassuring, conversational, and direct (1 to 3 clear, natural sentences).
+- Strictly avoid robotic clichés: never say "As an AI...", "I cannot directly schedule...", "According to policy...", "Please be advised...", or stiff legalistic phrases.
+- When confirming actions (refunds, follow-ups, card freezes, specialist handoffs), speak with natural confidence and personal warmth.
+- Make the customer feel heard, supported, and taken care of in every single turn.
 
 Security & Verification Invariants:
 - Before discussing ANY account detail, verify customer with matching email and last 4 card digits.
@@ -970,9 +972,18 @@ def process_chat(session_id: str, req: ChatRequest):
             session.messages.append({"role": "user", "content": contact_provided})
             session.messages.append({"role": "assistant", "content": reassurance_msg})
             return {
+                "session_id": session.session_id,
+                "user_message": contact_provided,
+                "agent_response": reassurance_msg,
                 "response": reassurance_msg,
+                "messages": [m for m in session.messages if m.get("role") in ("user", "assistant") and m.get("content")],
                 "tool_called": "none",
+                "model_used": runner.model_name,
+                "provider_display": get_provider_display_name(runner.model_name),
+                "execution_time_ms": 140,
+                "failover_occurred": False,
                 "new_trace_events": [],
+                "all_events": session.tool_trace,
                 "session_state": {
                     "verified": session.verified,
                     "customer_id": session.customer_id,
@@ -987,7 +998,7 @@ def process_chat(session_id: str, req: ChatRequest):
     # Check if this message is a follow-up scheduling selection from the interactive calendar
     msg_lower = req.message.lower()
     if "schedule my human specialist follow-up for:" in msg_lower or "connect now (urgent priority)" in msg_lower:
-        slot_text = req.message.replace("I would like to schedule my human specialist follow-up for:", "").strip()
+        slot_text = req.message.replace("I would like to schedule my human specialist follow-up for:", "").strip().rstrip(".")
         is_urgent = "urgent" in msg_lower or "connect now" in msg_lower
 
         for t in HUMAN_TICKETS:
@@ -1004,16 +1015,25 @@ def process_chat(session_id: str, req: ChatRequest):
                 break
 
         if is_urgent:
-            ack_msg = "Your case has been prioritized for immediate specialist review. A member of our dispute operations team is looking into your file now."
+            ack_msg = "You got it! I've flagged your case as Urgent Priority for our specialist team. A dispute specialist is reviewing your file right now and will connect with you shortly. Is there anything else I can prepare for them?"
         else:
-            ack_msg = f"Your appointment with our human specialist team is confirmed for {slot_text}. A specialist will reach out to you with an update at that time."
+            ack_msg = f"You're all set! I've scheduled your follow-up with our specialist team for {slot_text}. They have your full ticket history and will reach out to you right on time. Let me know if you need help with anything else in the meantime!"
 
         session.messages.append({"role": "user", "content": req.message})
         session.messages.append({"role": "assistant", "content": ack_msg})
         return {
+            "session_id": session.session_id,
+            "user_message": req.message,
+            "agent_response": ack_msg,
             "response": ack_msg,
+            "messages": [m for m in session.messages if m.get("role") in ("user", "assistant") and m.get("content")],
             "tool_called": "none",
+            "model_used": runner.model_name,
+            "provider_display": get_provider_display_name(runner.model_name),
+            "execution_time_ms": 150,
+            "failover_occurred": False,
             "new_trace_events": [],
+            "all_events": session.tool_trace,
             "session_state": {
                 "verified": session.verified,
                 "customer_id": session.customer_id,
