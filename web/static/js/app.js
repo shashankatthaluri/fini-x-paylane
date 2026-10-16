@@ -651,8 +651,19 @@ function setupDiscoveryCallouts() {
   const noteEl = document.getElementById("btn-customer-note");
 
   let currentCalloutStep = null; // 1 = github, 2 = note
-  let turnCounter = 0;
+  let hasVisitedCustomerWidget = false;
+  let widgetTurns = 0;
+  let widgetDwellSeconds = 0;
+  let appDwellSeconds = 0;
+  let pendingTriggerTimer = null;
   let hasTriggered = false;
+
+  try {
+    if (localStorage.getItem("paylane_callouts_completed") === "true") {
+      hasTriggered = true;
+      return;
+    }
+  } catch (_) {}
 
   function positionCallout(targetEl) {
     if (!targetEl) return;
@@ -746,6 +757,10 @@ function setupDiscoveryCallouts() {
     if (noteEl) noteEl.classList.remove("discovery-target-pulse");
     currentCalloutStep = null;
     hasTriggered = true;
+    if (pendingTriggerTimer) {
+      clearTimeout(pendingTriggerTimer);
+      pendingTriggerTimer = null;
+    }
     try {
       localStorage.setItem("paylane_callouts_completed", "true");
     } catch (_) {}
@@ -805,27 +820,97 @@ function setupDiscoveryCallouts() {
     else if (currentCalloutStep === 2) positionCallout(noteEl);
   });
 
-  // Trigger from messages in widget or sandbox: strictly only once
-  window._notifyMessageTurnForDiscovery = () => {
+  // Active usage tracking timer: ticks every 1 second while window is in foreground
+  const dwellInterval = setInterval(() => {
     try {
-      if (hasTriggered || localStorage.getItem("paylane_callouts_completed") === "true") return;
-      turnCounter++;
-      if (turnCounter >= 2 && currentCalloutStep === null) {
+      if (hasTriggered || localStorage.getItem("paylane_callouts_completed") === "true") {
+        clearInterval(dwellInterval);
+        return;
+      }
+      if (document.hidden) return; // Do not count idle background tabs
+
+      appDwellSeconds++;
+      if (state && state.currentView === "customer-widget") {
+        hasVisitedCustomerWidget = true;
+        widgetDwellSeconds++;
+      }
+
+      // Check if threshold is met and schedule an unhurried, calm trigger
+      checkEligibilityAndSchedule();
+    } catch (_) {}
+  }, 1000);
+
+  function checkEligibilityAndSchedule(immediateDelayMs = null) {
+    if (hasTriggered || currentCalloutStep !== null) return;
+    try {
+      if (localStorage.getItem("paylane_callouts_completed") === "true") {
         hasTriggered = true;
-        setTimeout(showCallout1GitHub, 1200);
+        if (dwellInterval) clearInterval(dwellInterval);
+        return;
       }
     } catch (_) {}
+
+    // Invariant 1: Person MUST have visited the customer widget page
+    if (!hasVisitedCustomerWidget) return;
+
+    // Invariant 2: Meaningful usage of the customer widget and the app
+    // Either at least 2 conversational turns on the customer widget OR at least 35 seconds of customer widget engagement,
+    // along with overall app familiarity (at least 40 seconds total app usage).
+    const widgetUsed = widgetTurns >= 2 || widgetDwellSeconds >= 35;
+    const appUsed = appDwellSeconds >= 40 || widgetTurns >= 2;
+
+    if (!widgetUsed || !appUsed) return;
+
+    // If already waiting on a calm timer, let it run
+    if (pendingTriggerTimer) return;
+
+    // Unhurried delay: wait 18 seconds of calm idle time if on widget, or 8 seconds if user moved to another view
+    const delay = immediateDelayMs !== null 
+      ? immediateDelayMs 
+      : (state && state.currentView === "customer-widget" ? 18000 : 8000);
+
+    pendingTriggerTimer = setTimeout(() => {
+      pendingTriggerTimer = null;
+      if (hasTriggered || currentCalloutStep !== null) return;
+      
+      // Ensure we don't interrupt active typing, modals, or overlays
+      const auth = document.getElementById("auth-overlay");
+      if (auth && auth.classList.contains("active")) return;
+      const amaCard = document.getElementById("ama-chat-card");
+      if (amaCard && amaCard.classList.contains("active")) return;
+      const execModal = document.getElementById("executive-modal");
+      if (execModal && execModal.classList.contains("active")) return;
+      if (state && (state.isSendingWidget || state.isSendingPreview)) return;
+
+      hasTriggered = true;
+      if (dwellInterval) clearInterval(dwellInterval);
+      showCallout1GitHub();
+    }, delay);
+  }
+
+  // Hook: Called when user switches views
+  window._notifyViewSwitched = (viewName) => {
+    if (viewName === "customer-widget") {
+      hasVisitedCustomerWidget = true;
+    } else if (hasVisitedCustomerWidget && (widgetTurns >= 1 || widgetDwellSeconds >= 25)) {
+      // User explored the customer widget and navigated to another view:
+      // This is a relaxed, natural transition moment. Schedule after a gentle 8s delay.
+      checkEligibilityAndSchedule(8000);
+    }
   };
 
-  // Timer fallback trigger: 90 seconds (strictly only once)
-  setTimeout(() => {
-    try {
-      if (!hasTriggered && localStorage.getItem("paylane_callouts_completed") !== "true" && currentCalloutStep === null) {
-        hasTriggered = true;
-        showCallout1GitHub();
-      }
-    } catch (_) {}
-  }, 90000);
+  // Hook: Called when user completes an interaction turn on Customer Widget
+  window._notifyCustomerWidgetTurn = () => {
+    hasVisitedCustomerWidget = true;
+    widgetTurns++;
+    // Cancel any previous timer to ensure no interruption during active conversation
+    if (pendingTriggerTimer) {
+      clearTimeout(pendingTriggerTimer);
+      pendingTriggerTimer = null;
+    }
+    // Schedule calm, unhurried trigger 20 seconds after this turn
+    checkEligibilityAndSchedule(20000);
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1024,6 +1109,11 @@ function switchView(viewName, updateHash = true) {
     if (!state.previewSessionId) initPreviewSession();
   } else if (viewName === "customer-widget") {
     if (!state.widgetSessionId) initWidgetSession();
+  }
+
+  // Notify discovery callouts manager of view change
+  if (typeof window._notifyViewSwitched === "function") {
+    window._notifyViewSwitched(viewName);
   }
 }
 
@@ -2587,10 +2677,6 @@ async function handlePreviewSend() {
     loadOverviewData();
     loadAnalyticsData();
     loadInboxData();
-
-    if (window._notifyMessageTurnForDiscovery) {
-      window._notifyMessageTurnForDiscovery();
-    }
   } catch (err) {
     console.error("Preview send error:", err);
     const turnTextEl = agentCard.querySelector(".turn-text");
@@ -3458,8 +3544,8 @@ async function handleWidgetSend() {
     loadAnalyticsData();
     loadInboxData();
 
-    if (window._notifyMessageTurnForDiscovery) {
-      window._notifyMessageTurnForDiscovery();
+    if (typeof window._notifyCustomerWidgetTurn === "function") {
+      window._notifyCustomerWidgetTurn();
     }
   } catch (err) {
     console.error("Widget error:", err);
