@@ -636,6 +636,168 @@ function setupPersonasModal() {
   });
 }
 
+function setupDiscoveryCallouts() {
+  const callout = document.getElementById("discovery-callout");
+  const calloutTitle = document.getElementById("discovery-callout-title");
+  const calloutBody = document.getElementById("discovery-callout-body");
+  const calloutBtn = document.getElementById("discovery-callout-btn");
+  const calloutArrow = document.getElementById("discovery-callout-arrow");
+
+  if (!callout) return;
+
+  const githubEl = document.getElementById("btn-github-link");
+  const noteEl = document.getElementById("btn-customer-note");
+
+  let currentCalloutStep = null; // 1 = github, 2 = note
+  let turnCounter = 0;
+
+  function positionCallout(targetEl) {
+    if (!targetEl) return;
+    const rect = targetEl.getBoundingClientRect();
+    const popWidth = 250;
+    const popHeight = callout.offsetHeight || 105;
+
+    // Position above target element
+    let top = rect.top - popHeight - 12;
+    let left = rect.left + (rect.width / 2) - (popWidth / 2);
+
+    // Keep within horizontal bounds
+    if (left < 14) left = 14;
+    if (left + popWidth > window.innerWidth - 14) {
+      left = window.innerWidth - popWidth - 14;
+    }
+
+    // Vertical positioning & arrow orientation
+    if (top < 10) {
+      top = rect.bottom + 10;
+      if (calloutArrow) {
+        calloutArrow.style.top = "-6px";
+        calloutArrow.style.borderTop = "none";
+        calloutArrow.style.borderBottom = "6px solid #ffffff";
+      }
+    } else {
+      if (calloutArrow) {
+        calloutArrow.style.top = "100%";
+        calloutArrow.style.borderBottom = "none";
+        calloutArrow.style.borderTop = "6px solid #ffffff";
+      }
+    }
+
+    if (calloutArrow) {
+      const targetCenter = rect.left + (rect.width / 2);
+      const arrowLeft = Math.max(16, Math.min(popWidth - 16, targetCenter - left));
+      calloutArrow.style.left = `${Math.round(arrowLeft - 6)}px`;
+    }
+
+    callout.style.top = `${Math.round(top)}px`;
+    callout.style.left = `${Math.round(left)}px`;
+  }
+
+  function showCallout1GitHub() {
+    if (!githubEl) return;
+    const auth = document.getElementById("auth-overlay");
+    if (auth && auth.classList.contains("active")) return;
+
+    currentCalloutStep = 1;
+    calloutTitle.innerHTML = `
+      <svg style="width:13px;height:13px;fill:currentColor;" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      Complete Code View
+    `;
+    calloutBody.textContent = "For complete code view, architecture decisions & test traces on GitHub.";
+    calloutBtn.textContent = "Got it";
+
+    callout.style.display = "flex";
+    githubEl.classList.add("discovery-target-pulse");
+    positionCallout(githubEl);
+    requestAnimationFrame(() => callout.classList.add("active"));
+  }
+
+  function showCallout2ExecutiveNote() {
+    if (!noteEl) return;
+    const auth = document.getElementById("auth-overlay");
+    if (auth && auth.classList.contains("active")) return;
+
+    currentCalloutStep = 2;
+    calloutTitle.innerHTML = `
+      <svg style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Executive Note
+    `;
+    calloutBody.textContent = "Read the plain-language briefing prepared for Paylane's Head of Support.";
+    calloutBtn.textContent = "Got it";
+
+    callout.style.display = "flex";
+    noteEl.classList.add("discovery-target-pulse");
+    positionCallout(noteEl);
+    requestAnimationFrame(() => callout.classList.add("active"));
+  }
+
+  function closeCurrentCallout() {
+    callout.classList.remove("active");
+    if (githubEl) githubEl.classList.remove("discovery-target-pulse");
+    if (noteEl) noteEl.classList.remove("discovery-target-pulse");
+
+    setTimeout(() => {
+      callout.style.display = "none";
+      if (currentCalloutStep === 1) {
+        // After closing Callout 1, Callout 2 appears
+        setTimeout(showCallout2ExecutiveNote, 350);
+      } else if (currentCalloutStep === 2) {
+        currentCalloutStep = null;
+        try {
+          localStorage.setItem("paylane_callouts_completed", "true");
+        } catch (_) {}
+      }
+    }, 220);
+  }
+
+  // "Got it" button click
+  calloutBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeCurrentCallout();
+  });
+
+  // Clicking GitHub link directly closes Callout 1 and triggers Callout 2
+  if (githubEl) {
+    githubEl.addEventListener("click", () => {
+      if (currentCalloutStep === 1) closeCurrentCallout();
+    });
+  }
+
+  // Clicking Executive Note button directly closes Callout 2
+  if (noteEl) {
+    noteEl.addEventListener("click", () => {
+      if (currentCalloutStep === 2) closeCurrentCallout();
+    });
+  }
+
+  // Window resize repositions callout
+  window.addEventListener("resize", () => {
+    if (!callout.classList.contains("active")) return;
+    if (currentCalloutStep === 1) positionCallout(githubEl);
+    else if (currentCalloutStep === 2) positionCallout(noteEl);
+  });
+
+  // Trigger from messages in widget or sandbox
+  window._notifyMessageTurnForDiscovery = () => {
+    try {
+      if (localStorage.getItem("paylane_callouts_completed") === "true") return;
+      turnCounter++;
+      if (turnCounter >= 2 && currentCalloutStep === null) {
+        setTimeout(showCallout1GitHub, 1200);
+      }
+    } catch (_) {}
+  };
+
+  // Timer fallback trigger: 90 seconds
+  setTimeout(() => {
+    try {
+      if (localStorage.getItem("paylane_callouts_completed") !== "true" && currentCalloutStep === null) {
+        showCallout1GitHub();
+      }
+    } catch (_) {}
+  }, 90000);
+}
+
 // ---------------------------------------------------------------------------
 // App Initialization
 // ---------------------------------------------------------------------------
@@ -656,6 +818,7 @@ async function init() {
   setupAgentStudio();
   setupExecutiveModal();
   setupAmaWidget();
+  setupDiscoveryCallouts();
 
   // 1. Initial Load of Scenarios
   try {
@@ -2394,6 +2557,10 @@ async function handlePreviewSend() {
     loadOverviewData();
     loadAnalyticsData();
     loadInboxData();
+
+    if (window._notifyMessageTurnForDiscovery) {
+      window._notifyMessageTurnForDiscovery();
+    }
   } catch (err) {
     console.error("Preview send error:", err);
     const turnTextEl = agentCard.querySelector(".turn-text");
@@ -3260,6 +3427,10 @@ async function handleWidgetSend() {
     loadOverviewData();
     loadAnalyticsData();
     loadInboxData();
+
+    if (window._notifyMessageTurnForDiscovery) {
+      window._notifyMessageTurnForDiscovery();
+    }
   } catch (err) {
     console.error("Widget error:", err);
     const turnTextEl = agentCard.querySelector(".turn-text");
