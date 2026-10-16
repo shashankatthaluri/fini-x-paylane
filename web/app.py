@@ -984,6 +984,47 @@ def process_chat(session_id: str, req: ChatRequest):
                 "takeover_active": False,
             }
 
+    # Check if this message is a follow-up scheduling selection from the interactive calendar
+    msg_lower = req.message.lower()
+    if "schedule my human specialist follow-up for:" in msg_lower or "connect now (urgent priority)" in msg_lower:
+        slot_text = req.message.replace("I would like to schedule my human specialist follow-up for:", "").strip()
+        is_urgent = "urgent" in msg_lower or "connect now" in msg_lower
+
+        for t in HUMAN_TICKETS:
+            if (t.get("customer_email") and t.get("customer_email") == session.customer_email) or \
+               (t.get("customer_id") and t.get("customer_id") == session.customer_id) or \
+               (session_data.get("scenario_id") in ("customer_widget", "live_preview")):
+                t["scheduled_followup"] = slot_text
+                t["notes"].append(f"Customer confirmed specialist follow-up preference: {slot_text}.")
+                t["messages"].append({
+                    "role": "customer",
+                    "text": req.message,
+                    "time": now_time,
+                })
+                break
+
+        if is_urgent:
+            ack_msg = "Your case has been prioritized for immediate specialist review. A member of our dispute operations team is looking into your file now."
+        else:
+            ack_msg = f"Your appointment with our human specialist team is confirmed for {slot_text}. A specialist will reach out to you with an update at that time."
+
+        session.messages.append({"role": "user", "content": req.message})
+        session.messages.append({"role": "assistant", "content": ack_msg})
+        return {
+            "response": ack_msg,
+            "tool_called": "none",
+            "new_trace_events": [],
+            "session_state": {
+                "verified": session.verified,
+                "customer_id": session.customer_id,
+                "customer_name": session.customer_name,
+                "customer_email": session.customer_email,
+            },
+            "active_transaction": extract_ui_transaction(session, store),
+            "latest_action": extract_latest_action(session),
+            "takeover_active": False,
+        }
+
     # Ensure active runner uses requested or draft model, backup model, temperature, and grounded instructions
     model_to_use = req.model or ACTIVE_DRAFT.get("model", "gpt-4o-mini")
     backup_to_use = req.backup_model or ACTIVE_DRAFT.get("backup_model", "gemini-2.5-flash")

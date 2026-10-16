@@ -2831,12 +2831,15 @@ function attachInteractiveCards(containerCard, responseData, onActionSelect) {
   const respText = (responseData.agent_response || "").toLowerCase();
   const allEvents = responseData.all_events || [];
   const latestEvents = responseData.new_events || allEvents.slice(-2);
+  const lastUserMsg = (responseData.user_message || "").toLowerCase();
+  const alreadyScheduled = lastUserMsg.includes("schedule my human specialist") || lastUserMsg.includes("connect now");
   
-  const hasEscalation = latestEvents.some(e => e.details?.tool === "escalate_to_human") || 
+  const hasEscalation = !alreadyScheduled && (
+                        latestEvents.some(e => e.details?.tool === "escalate_to_human") || 
                         respText.includes("escalat") || 
                         respText.includes("specialist") || 
                         respText.includes("ticket") || 
-                        respText.includes("handed over");
+                        respText.includes("handed over"));
 
   const hasRefundPending = respText.includes("would you like me to refund") || 
                            respText.includes("shall i proceed with the refund") || 
@@ -2899,14 +2902,24 @@ function attachInteractiveCards(containerCard, responseData, onActionSelect) {
       });
     });
 
-    // Time slot click handlers
+    // Time slot click handlers with instant visual feedback
     pickerCard.querySelectorAll(".slot-time-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const timeSlot = btn.getAttribute("data-slot") || `${selectedDate.dateStr} at ${btn.getAttribute("data-time")}`;
-        pickerCard.style.opacity = "0.7";
-        pickerCard.style.pointerEvents = "none";
-        btn.style.background = "var(--emerald-text)";
-        btn.style.color = "#000000";
+        const isUrgent = timeSlot.includes("Connect Now") || timeSlot.includes("Urgent");
+
+        pickerCard.innerHTML = `
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.4);border-radius:10px;animation:fadeIn 0.2s ease-out;box-shadow:0 0 14px rgba(16,185,129,0.2);">
+            <div style="width:26px;height:26px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg class="svg-icon" style="width:14px;height:14px;stroke:#ffffff;color:#ffffff;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:12.5px;font-weight:600;color:#34d399;">${isUrgent ? 'Priority Specialist Connect Selected' : 'Follow-Up Scheduled'}</div>
+              <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Preference: <strong style="color:var(--text-primary);">${timeSlot}</strong> · Specialist notified</div>
+            </div>
+          </div>
+        `;
+
         if (typeof onActionSelect === "function") {
           onActionSelect(`I would like to schedule my human specialist follow-up for: ${timeSlot}.`);
         }
@@ -3056,10 +3069,20 @@ function createSlotPickerElement(promptMessage, onSlotChosen) {
   pickerCard.querySelectorAll(".slot-time-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       const timeSlot = btn.getAttribute("data-slot") || `${selectedDate.dateStr} at ${btn.getAttribute("data-time")}`;
-      pickerCard.style.opacity = "0.7";
-      pickerCard.style.pointerEvents = "none";
-      btn.style.background = "var(--emerald-text)";
-      btn.style.color = "#000000";
+      const isUrgent = timeSlot.includes("Connect Now") || timeSlot.includes("Urgent");
+
+      pickerCard.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.4);border-radius:10px;animation:fadeIn 0.2s ease-out;box-shadow:0 0 14px rgba(16,185,129,0.2);">
+          <div style="width:26px;height:26px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg class="svg-icon" style="width:14px;height:14px;stroke:#ffffff;color:#ffffff;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:12.5px;font-weight:600;color:#34d399;">${isUrgent ? 'Priority Specialist Connect Selected' : 'Follow-Up Scheduled'}</div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Preference: <strong style="color:var(--text-primary);">${timeSlot}</strong> · Specialist notified</div>
+          </div>
+        </div>
+      `;
+
       if (typeof onSlotChosen === "function") {
         onSlotChosen(`I would like to schedule my human specialist follow-up for: ${timeSlot}.`);
       }
