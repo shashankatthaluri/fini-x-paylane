@@ -55,16 +55,57 @@ app.add_middleware(
 ACTIVE_SESSIONS: Dict[str, Dict[str, Any]] = {}
 
 
-def get_llm_client():
-    """Lazily initialize OpenAI client if API key is configured."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        return None
+def get_llm_client(model_name: Optional[str] = None):
+    """Lazily initialize multi-provider LLM client (OpenAI, DeepSeek, Google Gemini)."""
+    target_model = model_name or ACTIVE_DRAFT.get("model", "gpt-4o-mini")
+
     try:
         from openai import OpenAI
-        return OpenAI(api_key=api_key)
     except Exception:
         return None
+
+    # 1. DeepSeek Provider (via official OpenAI-compatible endpoint)
+    if target_model.startswith("deepseek"):
+        ds_key = os.getenv("DEEPSEEK_API_KEY")
+        if ds_key:
+            try:
+                return OpenAI(api_key=ds_key, base_url="https://api.deepseek.com")
+            except Exception:
+                pass
+
+    # 2. Google Gemini Provider (via official OpenAI-compatible endpoint)
+    if target_model.startswith("gemini"):
+        gem_key = os.getenv("GEMINI_API_KEY")
+        if gem_key:
+            try:
+                return OpenAI(api_key=gem_key, base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
+            except Exception:
+                pass
+
+    # 3. OpenAI Provider (Default)
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key:
+        try:
+            return OpenAI(api_key=openai_key)
+        except Exception:
+            pass
+
+    # 4. Multi-Provider Fallback: if primary target is missing, try remaining providers in cascade
+    ds_key = os.getenv("DEEPSEEK_API_KEY")
+    if ds_key:
+        try:
+            return OpenAI(api_key=ds_key, base_url="https://api.deepseek.com")
+        except Exception:
+            pass
+
+    gem_key = os.getenv("GEMINI_API_KEY")
+    if gem_key:
+        try:
+            return OpenAI(api_key=gem_key, base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
+        except Exception:
+            pass
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -554,12 +595,29 @@ def api_root():
 
 @app.get("/api/health")
 def health_check():
-    """Health status and configuration."""
-    api_key_configured = bool(os.getenv("OPENAI_API_KEY"))
+    """Health status and multi-provider LLM configuration."""
+    available_providers = []
+    if os.getenv("OPENAI_API_KEY"):
+        available_providers.append("openai")
+    if os.getenv("DEEPSEEK_API_KEY"):
+        available_providers.append("deepseek")
+    if os.getenv("GEMINI_API_KEY"):
+        available_providers.append("gemini")
+
+    api_key_configured = len(available_providers) > 0
+    active_model = ACTIVE_DRAFT.get("model", "gpt-4o-mini")
+
     return {
         "status": "healthy",
         "llm_online": api_key_configured,
-        "model": "gpt-4o-mini" if api_key_configured else "offline_rule_engine",
+        "model": active_model if api_key_configured else "offline_rule_engine",
+        "providers": available_providers,
+        "available_models": [
+            {"id": "gpt-4o-mini", "name": "GPT-4o Mini (OpenAI)", "provider": "openai", "available": bool(os.getenv("OPENAI_API_KEY"))},
+            {"id": "gpt-4o", "name": "GPT-4o (OpenAI Flagship)", "provider": "openai", "available": bool(os.getenv("OPENAI_API_KEY"))},
+            {"id": "deepseek-chat", "name": "DeepSeek-V3 (DeepSeek)", "provider": "deepseek", "available": bool(os.getenv("DEEPSEEK_API_KEY"))},
+            {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash (Google)", "provider": "gemini", "available": bool(os.getenv("GEMINI_API_KEY"))},
+        ],
         "active_sessions_count": len(ACTIVE_SESSIONS),
     }
 
@@ -875,6 +933,7 @@ def process_chat(session_id: str, req: ChatRequest):
 
     # Ensure active runner uses current draft model, temperature, and grounded instructions
     runner.model_name = ACTIVE_DRAFT.get("model", "gpt-4o-mini")
+    runner.llm_client = get_llm_client(runner.model_name)
     runner.temperature = float(ACTIVE_DRAFT.get("temperature", 0.0))
     current_inst = ACTIVE_DRAFT.get("instructions", DEFAULT_INSTRUCTIONS)
     runner.system_prompt = current_inst
