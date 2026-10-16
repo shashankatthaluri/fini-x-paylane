@@ -926,7 +926,7 @@ def process_chat(session_id: str, req: ChatRequest):
         if t.get("status") in ("open", "in_progress") and (
             (t.get("customer_email") and t.get("customer_email") == session.customer_email) or
             (t.get("customer_id") and t.get("customer_id") == session.customer_id) or
-            (session_data.get("scenario_id") in ("customer_widget", "live_preview") and t.get("takeover_active"))
+            (session_data.get("scenario_id") == "customer_widget" and t.get("takeover_active"))
         ):
             t["messages"].append({
                 "role": "customer",
@@ -940,7 +940,7 @@ def process_chat(session_id: str, req: ChatRequest):
         if t.get("awaiting_senior_contact") and (
             (t.get("customer_email") and t.get("customer_email") == session.customer_email) or
             (t.get("customer_id") and t.get("customer_id") == session.customer_id) or
-            (session_data.get("scenario_id") in ("customer_widget", "live_preview"))
+            (session_data.get("scenario_id") == "customer_widget")
         ):
             # Customer provided their contact details
             contact_provided = req.message.strip()
@@ -1004,7 +1004,7 @@ def process_chat(session_id: str, req: ChatRequest):
         for t in HUMAN_TICKETS:
             if (t.get("customer_email") and t.get("customer_email") == session.customer_email) or \
                (t.get("customer_id") and t.get("customer_id") == session.customer_id) or \
-               (session_data.get("scenario_id") in ("customer_widget", "live_preview")):
+               (session_data.get("scenario_id") == "customer_widget"):
                 t["scheduled_followup"] = slot_text
                 t["notes"].append(f"Customer confirmed specialist follow-up preference: {slot_text}.")
                 t["messages"].append({
@@ -1081,70 +1081,79 @@ def process_chat(session_id: str, req: ChatRequest):
     has_escalation = any(ev.get("details", {}).get("tool") == "escalate_to_human" for ev in new_events)
     has_refund = any(ev.get("details", {}).get("tool") == "issue_refund" and ev.get("details", {}).get("result", {}).get("ok") for ev in new_events)
 
-    # If an escalation occurred, automatically ingest it into the Human Support Inbox queue!
+    # Environment Isolation: Ingest escalations into HUMAN_TICKETS only for customer sessions (e.g. customer_widget).
+    # Sandbox testing sessions (live_preview, preview, test_sandbox) are strictly isolated to protect operational queues from test pollution.
+    is_sandbox = session_data.get("scenario_id") in ("live_preview", "preview", "test_sandbox")
     if has_escalation:
-        for ev in new_events:
-            if ev.get("details", {}).get("tool") == "escalate_to_human":
-                details = ev.get("details", {})
-                res = details.get("result", {})
-                args = details.get("args", {})
-                ticket_id = res.get("ticket_id") or f"tick_{len(HUMAN_TICKETS) + 1001}"
+        if not is_sandbox:
+            for ev in new_events:
+                if ev.get("details", {}).get("tool") == "escalate_to_human":
+                    details = ev.get("details", {})
+                    res = details.get("result", {})
+                    args = details.get("args", {})
+                    ticket_id = res.get("ticket_id") or f"tick_{len(HUMAN_TICKETS) + 1001}"
 
-                # Avoid duplicate ticket addition in the same session
-                if not any(t["id"] == ticket_id for t in HUMAN_TICKETS):
-                    customer_id = args.get("customer_id") or session.customer_id or "cust_unknown"
-                    # Determine customer metadata from store
-                    cust_obj = store.customers.get(customer_id, {})
-                    c_name = session.customer_name or cust_obj.get("name") or "Customer"
-                    c_email = session.customer_email or cust_obj.get("email") or "customer@example.com"
-                    c_last4 = cust_obj.get("card_last4", "••••")
-                    summary_text = args.get("summary") or "Customer case escalated to human queue."
+                    # Avoid duplicate ticket addition in the same session
+                    if not any(t["id"] == ticket_id for t in HUMAN_TICKETS):
+                        customer_id = args.get("customer_id") or session.customer_id or "cust_unknown"
+                        # Determine customer metadata from store
+                        cust_obj = store.customers.get(customer_id, {})
+                        c_name = session.customer_name or cust_obj.get("name") or "Customer"
+                        c_email = session.customer_email or cust_obj.get("email") or "customer@example.com"
+                        c_last4 = cust_obj.get("card_last4", "••••")
+                        summary_text = args.get("summary") or "Customer case escalated to human queue."
 
-                    # Determine ticket priority
-                    is_urgent = any(kw in summary_text.lower() for kw in ("fraud", "unauthorized", "legal", "$500", "lawyer"))
-                    is_freeze = "frozen" in summary_text.lower() or "freeze" in summary_text.lower()
-                    priority = "urgent" if is_urgent else ("high" if is_freeze else "normal")
-                    category = "Fraud & Risk" if is_urgent else ("Security Freeze" if is_freeze else "Refund Escalation")
+                        # Determine ticket priority
+                        is_urgent = any(kw in summary_text.lower() for kw in ("fraud", "unauthorized", "legal", "$500", "lawyer"))
+                        is_freeze = "frozen" in summary_text.lower() or "freeze" in summary_text.lower()
+                        priority = "urgent" if is_urgent else ("high" if is_freeze else "normal")
+                        category = "Fraud & Risk" if is_urgent else ("Security Freeze" if is_freeze else "Refund Escalation")
 
-                    from datetime import datetime, timezone
-                    now_time = datetime.now(timezone.utc).strftime("%H:%M")
-                    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                        from datetime import datetime, timezone
+                        now_time = datetime.now(timezone.utc).strftime("%H:%M")
+                        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-                    # Construct message timeline
-                    timeline_msgs = []
-                    for m in session.messages[-4:]:
-                        if m.get("role") in ("user", "assistant") and m.get("content"):
-                            timeline_msgs.append({
-                                "role": "customer" if m.get("role") == "user" else "agent",
-                                "text": m.get("content"),
-                                "time": now_time,
-                            })
+                        # Construct message timeline
+                        timeline_msgs = []
+                        for m in session.messages[-4:]:
+                            if m.get("role") in ("user", "assistant") and m.get("content"):
+                                timeline_msgs.append({
+                                    "role": "customer" if m.get("role") == "user" else "agent",
+                                    "text": m.get("content"),
+                                    "time": now_time,
+                                })
 
-                    conv_summary = generate_conversation_summary(
-                        messages=timeline_msgs,
-                        escalation_reason=summary_text,
-                        customer_name=c_name,
-                        priority=priority,
-                        category=category,
-                    )
+                        conv_summary = generate_conversation_summary(
+                            messages=timeline_msgs,
+                            escalation_reason=summary_text,
+                            customer_name=c_name,
+                            priority=priority,
+                            category=category,
+                        )
 
-                    new_ticket = {
-                        "id": ticket_id,
-                        "customer_id": customer_id,
-                        "customer_name": c_name,
-                        "customer_email": c_email,
-                        "card_last4": c_last4,
-                        "priority": priority,
-                        "status": "open",
-                        "created_at": now_iso,
-                        "category": category,
-                        "summary": summary_text,
-                        "conversation_summary": conv_summary,
-                        "assigned_to": None,
-                        "messages": timeline_msgs,
-                        "notes": [f"Escalated automatically by Paylane AI Agent from session {session.session_id}."],
-                    }
-                    HUMAN_TICKETS.insert(0, new_ticket)
+                        new_ticket = {
+                            "id": ticket_id,
+                            "customer_id": customer_id,
+                            "customer_name": c_name,
+                            "customer_email": c_email,
+                            "card_last4": c_last4,
+                            "priority": priority,
+                            "status": "open",
+                            "created_at": now_iso,
+                            "category": category,
+                            "summary": summary_text,
+                            "conversation_summary": conv_summary,
+                            "assigned_to": None,
+                            "messages": timeline_msgs,
+                            "notes": [f"Escalated automatically by Paylane AI Agent from session {session.session_id}."],
+                        }
+                        HUMAN_TICKETS.insert(0, new_ticket)
+        else:
+            # Annotate sandbox trace events with environment isolation metadata
+            for ev in new_events:
+                if ev.get("details", {}).get("tool") == "escalate_to_human":
+                    ev["details"]["sandbox_isolated"] = True
+                    ev["details"]["sandbox_isolation_note"] = "Tool execution verified. Operational inbox protected from sandbox test pollution."
 
     record_live_invocation(
         model=getattr(runner, "model_name", "gpt-4o-mini"),
@@ -1857,7 +1866,7 @@ def update_ticket_action(ticket_id: str, req: TicketActionRequest):
                 sess_email = r.session.customer_email
                 if (sess_email and sess_email == ticket.get("customer_email")) or \
                    (sess_cust_id and sess_cust_id == ticket.get("customer_id")) or \
-                   (s_data.get("scenario_id") in ("customer_widget", "live_preview")):
+                   (s_data.get("scenario_id") == "customer_widget"):
                     r.session.messages.append({
                         "role": "assistant",
                         "content": f"[Human Specialist · {specialist_name}]: {takeover_msg}"
@@ -1901,7 +1910,7 @@ def update_ticket_action(ticket_id: str, req: TicketActionRequest):
                 sess_email = r.session.customer_email
                 if (sess_email and sess_email == ticket.get("customer_email")) or \
                    (sess_cust_id and sess_cust_id == ticket.get("customer_id")) or \
-                   (s_data.get("scenario_id") in ("customer_widget", "live_preview")):
+                   (s_data.get("scenario_id") == "customer_widget"):
                     r.session.messages.append({
                         "role": "assistant",
                         "content": chat_escalation_msg
@@ -1945,7 +1954,7 @@ def update_ticket_action(ticket_id: str, req: TicketActionRequest):
                 sess_email = r.session.customer_email
                 if (sess_email and sess_email == ticket.get("customer_email")) or \
                    (sess_cust_id and sess_cust_id == ticket.get("customer_id")) or \
-                   (s_data.get("scenario_id") in ("customer_widget", "live_preview")):
+                   (s_data.get("scenario_id") == "customer_widget"):
                     r.session.messages.append({
                         "role": "assistant",
                         "content": closing_msg
@@ -1983,7 +1992,7 @@ def update_ticket_action(ticket_id: str, req: TicketActionRequest):
                 sess_email = r.session.customer_email
                 if (sess_email and sess_email == ticket.get("customer_email")) or \
                    (sess_cust_id and sess_cust_id == ticket.get("customer_id")) or \
-                   (s_data.get("scenario_id") in ("customer_widget", "live_preview")):
+                   (s_data.get("scenario_id") == "customer_widget"):
                     r.session.messages.append({
                         "role": "assistant",
                         "content": misuse_msg
@@ -2012,7 +2021,7 @@ def update_ticket_action(ticket_id: str, req: TicketActionRequest):
                 sess_email = r.session.customer_email
                 if (sess_email and sess_email == ticket.get("customer_email")) or \
                    (sess_cust_id and sess_cust_id == ticket.get("customer_id")) or \
-                   (s_data.get("scenario_id") in ("customer_widget", "live_preview")):
+                   (s_data.get("scenario_id") == "customer_widget"):
                     r.session.messages.append({
                         "role": "assistant",
                         "content": f"[Human Specialist · {specialist_name}]: {req.note}"
@@ -2295,6 +2304,8 @@ def evaluate_and_triage_feedback(session_id: Optional[str]) -> Dict[str, Any]:
                 if m.get("role") in ("user", "assistant") and m.get("content"):
                     messages_snippet.append(f"{m.get('role').upper()}: {m.get('content')}")
 
+    is_sandbox = bool(session_data and session_data.get("scenario_id") in ("live_preview", "preview", "test_sandbox"))
+
     # Add-on Rule: If the customer repeats dissatisfaction (2 or more times)
     if count >= 2:
         ticket_id = f"tick_{len(HUMAN_TICKETS) + 1001}"
@@ -2327,7 +2338,8 @@ def evaluate_and_triage_feedback(session_id: Optional[str]) -> Dict[str, Any]:
             ],
             "notes": [f"Automatically escalated via Thumbs-Down AI Gate (Repeat threshold reached: {count})."],
         }
-        HUMAN_TICKETS.insert(0, new_ticket)
+        if not is_sandbox:
+            HUMAN_TICKETS.insert(0, new_ticket)
 
         summary_data = {
             "overview": f"Customer flagged AI response as unhelpful ({count} negative ratings). Automatically escalated with Normal Priority for specialist scheduling.",
@@ -2383,7 +2395,8 @@ def evaluate_and_triage_feedback(session_id: Optional[str]) -> Dict[str, Any]:
             ],
             "notes": ["Escalated via Thumbs-Down AI Evaluator Gate."],
         }
-        HUMAN_TICKETS.insert(0, new_ticket)
+        if not is_sandbox:
+            HUMAN_TICKETS.insert(0, new_ticket)
 
         summary_data = {
             "overview": "Customer inquiry involves a sensitive or complex topic that benefits from personalized human handling.",

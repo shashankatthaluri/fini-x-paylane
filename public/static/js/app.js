@@ -2715,14 +2715,21 @@ async function handlePreviewSend() {
     for (const toolEvent of actionEvents) {
       const toolName = toolEvent.details?.tool || "pre_call_policy_gate";
       const isOk = toolEvent.details?.result && !toolEvent.details?.result?.error && toolEvent.details?.result?.ok !== false;
+      const isIsolated = toolName === "escalate_to_human" || toolEvent.details?.sandbox_isolated;
+      const badgeClass = isIsolated ? "pill-isolated" : (isOk ? "pill-approved" : "pill-unverified");
+      const badgeText = isIsolated ? "SANDBOX ISOLATED" : (isOk ? "VERIFIED" : "GATE BLOCKED");
+      const detailsText = isIsolated
+        ? `Ticket created in sandbox session · Operational Human Inbox protected from test pollution.`
+        : `Executed step verified by trusted Python backend: <code>${toolName}()</code>.`;
+
       const pill = document.createElement("div");
       pill.className = "between-turns-action-pill";
       pill.innerHTML = `
         <div class="action-pill-header">
-          <span class="action-pill-title"><svg class="svg-icon" style="width:12px;height:12px;color:#10b981;display:inline-block;vertical-align:-1px;margin-right:5px;" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>TRUSTED RUNTIME GATE: ${toolName.toUpperCase()}</span>
-          <span class="action-pill-badge ${isOk ? 'pill-approved' : 'pill-unverified'}">${isOk ? 'VERIFIED' : 'GATE BLOCKED'}</span>
+          <span class="action-pill-title"><svg class="svg-icon" style="width:12px;height:12px;color:${isIsolated ? '#818cf8' : '#10b981'};display:inline-block;vertical-align:-1px;margin-right:5px;" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>TRUSTED RUNTIME GATE: ${toolName.toUpperCase()}</span>
+          <span class="action-pill-badge ${badgeClass}">${badgeText}</span>
         </div>
-        <div class="action-pill-details">Executed step verified by trusted Python backend: <code>${toolName}()</code>.</div>
+        <div class="action-pill-details">${detailsText}</div>
       `;
       msgs.insertBefore(pill, agentCard);
       msgs.scrollTop = msgs.scrollHeight;
@@ -2816,9 +2823,24 @@ function updatePreviewInspector(data) {
   if (data.all_events && traceList) {
     traceList.innerHTML = "";
     data.all_events.filter(e => e.event_type !== "user_message").forEach(ev => {
+      const toolName = ev.details?.tool || ev.event_type;
+      const isEscalation = toolName === "escalate_to_human";
+      const isIsolated = ev.details?.sandbox_isolated || isEscalation;
+      const badgeText = isIsolated ? "ISOLATED" : "EXEC";
+      const badgeClass = isIsolated ? "tool-badge-isolated" : "tool-badge-passed";
+      const subText = isIsolated 
+        ? `<div style="font-size:10px;color:var(--text-muted);margin-top:3px;font-family:var(--font-mono);">Operational queue protected</div>` 
+        : "";
+
       const row = document.createElement("div");
       row.className = "tool-step-row";
-      row.innerHTML = `<div class="tool-step-header"><span class="tool-step-name">${ev.details?.tool || ev.event_type}</span><span class="tool-step-badge tool-badge-passed">EXEC</span></div>`;
+      row.innerHTML = `
+        <div class="tool-step-header">
+          <span class="tool-step-name">${toolName}</span>
+          <span class="tool-step-badge ${badgeClass}">${badgeText}</span>
+        </div>
+        ${subText}
+      `;
       traceList.appendChild(row);
     });
   }

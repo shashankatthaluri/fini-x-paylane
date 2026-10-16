@@ -832,6 +832,12 @@ body {
   border: 1px solid var(--status-pending-border) !important;
 }
 
+.pill-isolated {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+  color: #818cf8 !important;
+  border: 1px solid rgba(99, 102, 241, 0.35) !important;
+}
+
 .tool-step-row {
   background-color: var(--bg-card);
   border: 1px solid var(--border-subtle);
@@ -867,6 +873,12 @@ body {
   background-color: var(--status-success-bg);
   color: var(--status-success-text);
   border-color: var(--status-success-border);
+}
+
+.tool-badge-isolated {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+  color: #818cf8 !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
 }
 
 .action-pill-details {
