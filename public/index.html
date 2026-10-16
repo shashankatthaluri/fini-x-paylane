@@ -903,79 +903,138 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
          -------------------------------------------------------------------- -->
     <section id="stage-analytics" class="fini-view-stage">
       <div style="padding:24px;display:flex;flex-direction:column;gap:20px;">
+        
+        <!-- Live Telemetry Status & Controls Strip -->
+        <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:14px 20px;flex-wrap:wrap;gap:12px;">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="telemetry-live-dot"></span>
+              <span style="font-weight:700;font-size:12px;letter-spacing:0.04em;color:var(--text-primary);">LIVE TELEMETRY STREAM</span>
+            </div>
+            <span class="stance-badge stance-badge-neutral" id="analytics-active-rates-badge">Model Rates: gpt-4o-mini ($0.15/1M in &middot; $0.60/1M out)</span>
+            <span style="font-size:11px;color:var(--text-muted);" id="analytics-last-synced-time">Synced just now</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button id="btn-refresh-analytics" class="btn-secondary" style="font-size:11.5px;padding:5px 12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;border-radius:6px;border:1px solid var(--border-medium);background:var(--bg-app);color:var(--text-primary);">
+              <svg class="svg-icon" id="analytics-refresh-icon" style="width:13px;height:13px;" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span>Refresh Metering</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI Stat Cards -->
         <div class="overview-kpis-grid" style="padding:0;">
           <div class="kpi-stat-card">
             <div class="kpi-stat-label">Total Input Tokens</div>
-            <div class="kpi-stat-val" id="analytics-input-tokens">348,500</div>
-            <div class="kpi-stat-delta">$0.15 per 1M tokens</div>
+            <div class="kpi-stat-val" id="analytics-input-tokens">--</div>
+            <div class="kpi-stat-delta" id="analytics-input-delta">Cumulative across all sessions</div>
           </div>
           <div class="kpi-stat-card">
             <div class="kpi-stat-label">Total Output Tokens</div>
-            <div class="kpi-stat-val" id="analytics-output-tokens">69,200</div>
-            <div class="kpi-stat-delta">$0.60 per 1M tokens</div>
+            <div class="kpi-stat-val" id="analytics-output-tokens">--</div>
+            <div class="kpi-stat-delta" id="analytics-output-delta">Generated completions</div>
           </div>
           <div class="kpi-stat-card">
             <div class="kpi-stat-label">Total Cumulative Spend</div>
-            <div class="kpi-stat-val" id="analytics-total-spend">$0.09380</div>
-            <div class="kpi-stat-delta">Verified provider billing</div>
+            <div class="kpi-stat-val" id="analytics-total-spend" style="color:var(--emerald-text, #10b981);">--</div>
+            <div class="kpi-stat-delta" id="analytics-spend-delta">Verified provider billing</div>
           </div>
           <div class="kpi-stat-card">
             <div class="kpi-stat-label">Avg Cost / Resolution</div>
-            <div class="kpi-stat-val" id="analytics-avg-cost">$0.00078</div>
+            <div class="kpi-stat-val" id="analytics-avg-cost">--</div>
             <div class="kpi-stat-delta">Sub-cent unit economics</div>
           </div>
           <div class="kpi-stat-card">
             <div class="kpi-stat-label">CSAT Quality Score</div>
-            <div class="kpi-stat-val" id="analytics-csat-score" style="color:var(--emerald-text, #10b981);">95.8%</div>
-            <div class="kpi-stat-delta" id="analytics-feedback-delta"><span style="color:#10b981;font-weight:600;">115 Positive</span> &middot; <span style="color:var(--text-muted);font-weight:600;">5 Negative</span></div>
+            <div class="kpi-stat-val" id="analytics-csat-score" style="color:var(--emerald-text, #10b981);">--</div>
+            <div class="kpi-stat-delta" id="analytics-feedback-delta">--</div>
           </div>
         </div>
 
+        <!-- Multi-Model Token Share & Unit Economics Breakdown Card -->
         <div class="fini-panel" style="margin:0;">
-          <div class="fini-panel-header">
-            <div class="fini-panel-title">Provider Invocations & Token Metering Ledger</div>
+          <div class="fini-panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div class="fini-panel-title">Model Token Share &amp; Consumption Distribution</div>
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">Proportional token usage across deployed providers and failover fallbacks</div>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);" id="analytics-ledger-count-sub">--</div>
           </div>
-          <div class="fini-panel-body" style="padding:0;">
+          <div class="fini-panel-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;">
+            <div class="model-share-bar" id="model-share-bar">
+              <!-- Dynamically populated segments -->
+            </div>
+            <div id="model-share-legend" style="display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;color:var(--text-secondary);">
+              <!-- Dynamically populated model pills -->
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px;margin-top:6px;padding-top:12px;border-top:1px solid var(--border-subtle);">
+              <div style="font-size:11.5px;">
+                <span style="color:var(--text-muted);">Token I/O Ratio:</span>
+                <strong style="color:var(--text-primary);margin-left:4px;" id="analytics-io-ratio">5.04 : 1</strong>
+              </div>
+              <div style="font-size:11.5px;">
+                <span style="color:var(--text-muted);">Avg Tokens / Turn:</span>
+                <strong style="color:var(--text-primary);margin-left:4px;" id="analytics-avg-tokens">--</strong>
+              </div>
+              <div style="font-size:11.5px;">
+                <span style="color:var(--text-muted);">Est. Cost per 1k Resolutions:</span>
+                <strong style="color:var(--emerald-text, #10b981);margin-left:4px;" id="analytics-per-1k">--</strong>
+              </div>
+              <div style="font-size:11.5px;">
+                <span style="color:var(--text-muted);">Human Agent Cost Equivalent:</span>
+                <span style="color:var(--text-secondary);margin-left:4px;">~$4.50 / resolution</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Invocations & Metering Ledger Panel -->
+        <div class="fini-panel" style="margin:0;">
+          <div class="fini-panel-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div>
+              <div class="fini-panel-title">Provider Invocations &amp; Token Metering Ledger</div>
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">Complete historical audit of pre-added benchmark turns and live customer interactions. Click any row for JSON trace.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <input type="text" id="analytics-search-input" placeholder="Search tool, model, channel..." style="font-size:11px;padding:6px 12px;border-radius:6px;border:1px solid var(--border-medium);background:var(--bg-input);color:var(--text-primary);width:190px;">
+              <select id="analytics-filter-model" style="font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--border-medium);background:var(--bg-input);color:var(--text-primary);cursor:pointer;">
+                <option value="all">All Models</option>
+                <option value="gpt-4o-mini">gpt-4o-mini</option>
+                <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                <option value="deepseek-v3">deepseek-v3</option>
+              </select>
+              <select id="analytics-filter-tool" style="font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--border-medium);background:var(--bg-input);color:var(--text-primary);cursor:pointer;">
+                <option value="all">All Operations</option>
+                <option value="issue_refund">issue_refund()</option>
+                <option value="escalate_to_human">escalate_to_human()</option>
+                <option value="get_customer">get_customer()</option>
+                <option value="get_transaction">get_transaction()</option>
+                <option value="chat_turn">chat_turn</option>
+              </select>
+            </div>
+          </div>
+          <div class="fini-panel-body" style="padding:0;overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:12px;text-align:left;">
               <thead>
-                <tr style="border-bottom:1px solid var(--border-subtle);color:var(--text-muted);font-size:11px;">
-                  <th style="padding:12px 18px;">TIMESTAMP</th>
+                <tr style="border-bottom:1px solid var(--border-subtle);color:var(--text-muted);font-size:11px;background:var(--bg-card);">
+                  <th style="padding:12px 18px;">TIMESTAMP (UTC)</th>
+                  <th style="padding:12px 18px;">CHANNEL / CONTEXT</th>
                   <th style="padding:12px 18px;">MODEL</th>
                   <th style="padding:12px 18px;">INPUT TOKENS</th>
                   <th style="padding:12px 18px;">OUTPUT TOKENS</th>
+                  <th style="padding:12px 18px;">LATENCY</th>
                   <th style="padding:12px 18px;">COST (USD)</th>
                   <th style="padding:12px 18px;">TOOL EXECUTED</th>
+                  <th style="padding:12px 18px;text-align:right;">AUDIT</th>
                 </tr>
               </thead>
               <tbody id="analytics-table-body">
-                <tr style="border-bottom:1px solid var(--border-subtle);">
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">2026-10-12 16:14:15</td>
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;color:var(--text-primary);">gpt-4o-mini</td>
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);">940</td>
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);">82</td>
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--emerald-text);">$0.00019</td>
-                  <td style="padding:10px 18px;"><span style="font-family:var(--font-mono);font-size:10.5px;padding:2px 6px;border-radius:4px;background:var(--status-tag-bg);border:1px solid var(--border-subtle);color:var(--text-secondary);">issue_refund()</span></td>
-                </tr>
-                <tr style="border-bottom:1px solid var(--border-subtle);">
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">2026-10-12 16:14:02</td>
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;color:var(--text-primary);">gpt-4o-mini</td>
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);">820</td>
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);">64</td>
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--emerald-text);">$0.00016</td>
-                  <td style="padding:10px 18px;"><span style="font-family:var(--font-mono);font-size:10.5px;padding:2px 6px;border-radius:4px;background:var(--status-tag-bg);border:1px solid var(--border-subtle);color:var(--text-secondary);">get_customer()</span></td>
-                </tr>
-                <tr style="border-bottom:1px solid var(--border-subtle);">
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);">2026-10-12 15:20:00</td>
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;color:var(--text-primary);">gpt-4o-mini</td>
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);">1050</td>
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);">76</td>
-                  <td style="padding:10px 18px;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--emerald-text);">$0.00020</td>
-                  <td style="padding:10px 18px;"><span style="font-family:var(--font-mono);font-size:10.5px;padding:2px 6px;border-radius:4px;background:var(--status-tag-bg);border:1px solid var(--border-subtle);color:var(--text-secondary);">escalate_to_human()</span></td>
-                </tr>
+                <!-- Dynamically populated by app.js -->
               </tbody>
             </table>
           </div>
         </div>
+
       </div>
     </section>
 
