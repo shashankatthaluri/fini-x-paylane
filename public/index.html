@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" style="background-color:#09090b;color:#f4f4f5;">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,10 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css">
-  <!-- Supabase JS Client for Auth & OAuth -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="fini-platform-layout">
+<body class="fini-platform-layout" style="background-color:#09090b;color:#f4f4f5;">
 
   <!-- ======================================================================
        LEFT: FINI OPERATIONS SIDEBAR (240px)
@@ -1474,7 +1472,7 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
   <!-- ======================================================================
        SUPABASE & GOOGLE SIGN IN / SIGN UP MODAL OVERLAY
        ====================================================================== -->
-  <div id="auth-overlay" class="auth-overlay-backdrop active">
+  <div id="auth-overlay" class="auth-overlay-backdrop">
     <div class="auth-card">
       
       <!-- Brand Area: Optical alignment with subtle separator -->
@@ -1761,6 +1759,7 @@ Protocol C: Account Closure. Requests to terminate customer accounts require hum
     <div id="discovery-callout-arrow" class="discovery-callout-arrow"></div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <script type="module" src="/static/js/app.js"></script>
 </body>
 </html>
